@@ -1,0 +1,15 @@
+{
+  "name": "lampang-pround",
+  "private": true,
+  "workspaces": [
+    "worker",
+    "frontend",
+    "migration"
+  ],
+  "scripts": {
+    "dev:frontend": "npm run dev -w frontend",
+    "dev:worker": "npm run dev -w worker",
+    "typecheck": "npm run typecheck -w worker && npm run typecheck -w frontend",
+    "db:migrate:local": "npm run db:migrate:local -w worker"
+  }
+}

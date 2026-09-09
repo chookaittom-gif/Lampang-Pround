@@ -1,0 +1,82 @@
+# Lampang Pround — Cloudflare Worker
+# ทุก environment (default=local dev, staging, production) มี D1/R2 แยกกัน
+# ก่อน deploy ต้องสร้างทรัพยากรจริงก่อน แล้วใส่ database_id ให้ครบ:
+#   npx wrangler d1 create lampang-pround            (และ -staging / -prod)
+#   npx wrangler r2 bucket create lampang-pround-assets (และ -staging / -prod)
+# Secrets (ใส่ทีละ env): npx wrangler secret put GEOCODING_API_KEY --env staging
+
+name = "lampang-pround-dev"
+main = "src/index.ts"
+compatibility_date = "2026-08-01"
+compatibility_flags = ["nodejs_compat"]
+
+# ฝังฟอนต์ Sarabun เป็น ArrayBuffer สำหรับ pdf-lib
+rules = [
+  { type = "Data", globs = ["**/*.ttf"] }
+]
+
+[vars]
+APP_NAME = "ระบบฐานข้อมูล Lampang Pround"
+ORG_NAME = "สำนักงานพัฒนาชุมชน"
+SESSION_TTL_SECONDS = "21600"
+GUEST_ACCESS_TTL_SECONDS = "21600"
+# Fallback ระหว่างรอพิสูจน์ PDF parity (Q1): ถ้าตั้งค่าไว้ /api/export/pdf จะ proxy ไปหา GAS
+GAS_WEB_APP_URL = ""
+PDF_NATIVE = ""
+# Origin ของ frontend ตอน dev (Vite 5173) — production ปล่อยว่าง (same-origin)
+DEV_ALLOWED_ORIGIN = "http://localhost:5173"
+
+[assets]
+directory = "../frontend/dist"
+binding = "STATIC"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "lampang-pround"
+database_id = "TODO_LOCAL_D1_ID"
+
+[[r2_buckets]]
+binding = "ASSETS"
+bucket_name = "lampang-pround-assets"
+
+[env.staging]
+name = "lampang-pround-staging"
+
+[env.staging.vars]
+APP_NAME = "ระบบฐานข้อมูล Lampang Pround"
+ORG_NAME = "สำนักงานพัฒนาชุมชน"
+SESSION_TTL_SECONDS = "21600"
+GUEST_ACCESS_TTL_SECONDS = "21600"
+GAS_WEB_APP_URL = ""
+PDF_NATIVE = "on"
+DEV_ALLOWED_ORIGIN = ""
+
+[[env.staging.d1_databases]]
+binding = "DB"
+database_name = "lampang-pround-staging"
+database_id = "TODO_STAGING_D1_ID"
+
+[[env.staging.r2_buckets]]
+binding = "ASSETS"
+bucket_name = "lampang-pround-assets-staging"
+
+[env.production]
+name = "lampang-pround"
+
+[env.production.vars]
+APP_NAME = "ระบบฐานข้อมูล Lampang Pround"
+ORG_NAME = "สำนักงานพัฒนาชุมชน"
+SESSION_TTL_SECONDS = "21600"
+GUEST_ACCESS_TTL_SECONDS = "21600"
+GAS_WEB_APP_URL = ""
+PDF_NATIVE = ""
+DEV_ALLOWED_ORIGIN = ""
+
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "lampang-pround"
+database_id = "TODO_PROD_D1_ID"
+
+[[env.production.r2_buckets]]
+binding = "ASSETS"
+bucket_name = "lampang-pround-assets"
