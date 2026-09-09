@@ -54,7 +54,7 @@ DEV_ALLOWED_ORIGIN = ""
 [[env.staging.d1_databases]]
 binding = "DB"
 database_name = "lampang-pround-staging"
-database_id = "TODO_STAGING_D1_ID"
+database_id = "b01db995-9509-457d-ba2b-c49141a37bf8"
 
 [[env.staging.r2_buckets]]
 binding = "ASSETS"
