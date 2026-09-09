@@ -1,9 +1,8 @@
 # Lampang Pround — Cloudflare Worker
-# ทุก environment (default=local dev, staging, production) มี D1/R2 แยกกัน
+# ทุก environment มี D1 แยกกัน; local ใช้ R2, staging/production ใช้ GAS Drive adapter
 # ก่อน deploy ต้องสร้างทรัพยากรจริงก่อน แล้วใส่ database_id ให้ครบ:
 #   npx wrangler d1 create lampang-pround            (และ -staging / -prod)
-#   npx wrangler r2 bucket create lampang-pround-assets (และ -staging / -prod)
-# Secrets (ใส่ทีละ env): npx wrangler secret put GEOCODING_API_KEY --env staging
+# Secrets (ใส่ทีละ env): npx wrangler secret put GAS_DRIVE_ADAPTER_TOKEN --env staging
 
 name = "lampang-pround-dev"
 main = "src/index.ts"
@@ -22,6 +21,10 @@ SESSION_TTL_SECONDS = "21600"
 GUEST_ACCESS_TTL_SECONDS = "21600"
 # Fallback ระหว่างรอพิสูจน์ PDF parity (Q1): ถ้าตั้งค่าไว้ /api/export/pdf จะ proxy ไปหา GAS
 GAS_WEB_APP_URL = ""
+# local ใช้ R2; staging/production override เป็น drive
+IMAGE_STORAGE = "r2"
+# ตั้งค่าเป็น URL /exec หลัง deploy GAS Drive adapter
+GAS_DRIVE_ADAPTER_URL = ""
 PDF_NATIVE = ""
 # Origin ของ frontend ตอน dev (Vite 5173) — production ปล่อยว่าง (same-origin)
 DEV_ALLOWED_ORIGIN = "http://localhost:5173"
@@ -38,6 +41,8 @@ database_id = "TODO_LOCAL_D1_ID"
 [[r2_buckets]]
 binding = "ASSETS"
 bucket_name = "lampang-pround-assets"
+# env.staging/env.production intentionally omit this binding; Wrangler may warn
+# because the top-level local R2 binding is not inherited by Drive-only envs.
 
 [env.staging]
 name = "lampang-pround-staging"
@@ -48,6 +53,8 @@ ORG_NAME = "สำนักงานพัฒนาชุมชน"
 SESSION_TTL_SECONDS = "21600"
 GUEST_ACCESS_TTL_SECONDS = "21600"
 GAS_WEB_APP_URL = ""
+IMAGE_STORAGE = "drive"
+GAS_DRIVE_ADAPTER_URL = ""
 PDF_NATIVE = "on"
 DEV_ALLOWED_ORIGIN = ""
 
@@ -55,10 +62,6 @@ DEV_ALLOWED_ORIGIN = ""
 binding = "DB"
 database_name = "lampang-pround-staging"
 database_id = "b01db995-9509-457d-ba2b-c49141a37bf8"
-
-[[env.staging.r2_buckets]]
-binding = "ASSETS"
-bucket_name = "lampang-pround-assets-staging"
 
 [env.production]
 name = "lampang-pround"
@@ -69,6 +72,8 @@ ORG_NAME = "สำนักงานพัฒนาชุมชน"
 SESSION_TTL_SECONDS = "21600"
 GUEST_ACCESS_TTL_SECONDS = "21600"
 GAS_WEB_APP_URL = ""
+IMAGE_STORAGE = "drive"
+GAS_DRIVE_ADAPTER_URL = ""
 PDF_NATIVE = ""
 DEV_ALLOWED_ORIGIN = ""
 
@@ -76,7 +81,3 @@ DEV_ALLOWED_ORIGIN = ""
 binding = "DB"
 database_name = "lampang-pround"
 database_id = "TODO_PROD_D1_ID"
-
-[[env.production.r2_buckets]]
-binding = "ASSETS"
-bucket_name = "lampang-pround-assets"

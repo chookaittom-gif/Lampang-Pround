@@ -39,23 +39,50 @@ export async function handleUploadGalleryImage(request: Request, env: Env): Prom
       return jsonResponse({ success: false, message: 'กรุณาเข้าสู่ระบบก่อนอัปโหลดรูป' }, 200, env);
     }
 
-    const stored = await storeImage(env, shopId, fileBaseName, bytes, 'upload');
+    const idempotencyKey = str(payload.idempotencyKey).trim();
+    const stored = await storeImage(env, shopId, fileBaseName, bytes, 'upload', '', idempotencyKey);
+    if (stored.storage === 'drive' && idempotencyKey) {
+      const existing = await env.DB.prepare(
+        `SELECT gallery_id, drive_url, thumbnail_url FROM shop_gallery
+         WHERE shop_id = ? AND drive_file_id = ? LIMIT 1`
+      )
+        .bind(shopId, stored.driveFileId)
+        .first<{ gallery_id: string; drive_url: string; thumbnail_url: string }>();
+      if (existing) {
+        return jsonResponse(
+          {
+            success: true,
+            galleryId: existing.gallery_id,
+            shopId,
+            driveFileId: stored.driveFileId,
+            driveUrl: existing.drive_url || stored.driveUrl,
+            thumbnailUrl: existing.thumbnail_url || stored.thumbnailUrl,
+          },
+          200,
+          env
+        );
+      }
+    }
     const galleryId = await nextSequenceId(env.DB, 'GAL', 'GAL-');
     const now = new Date().toISOString();
-    const driveUrl = `${origin}/images/${stored.key}`;
-    const thumbnailUrl = driveUrl;
+    const extension = stored.mimeType === 'image/png' ? 'png' : stored.mimeType === 'image/gif' ? 'gif' : 'jpg';
+    const displayName = `${fileBaseName}.${extension}`;
+    const driveUrl = stored.storage === 'drive' ? stored.driveUrl : `${origin}/images/${stored.key}`;
+    const thumbnailUrl = stored.storage === 'drive' ? stored.thumbnailUrl : driveUrl;
+    const driveFileId = stored.storage === 'drive' ? stored.driveFileId : '';
     const result = await env.DB.prepare(
       `INSERT INTO shop_gallery (gallery_id, shop_id, product_id, image_role, display_name,
        drive_file_id, drive_url, thumbnail_url, mime_type, file_size, width, height,
        sort_order, status, created_at, created_by, updated_at, updated_by)
-       VALUES (?, ?, ?, ?, ?, '', ?, ?, ?, ?, '', '', ?, ?, ?, ?, ?, ?)`
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', '', ?, ?, ?, ?, ?, ?)`
     )
       .bind(
         galleryId,
         shopId,
         productId,
         imageRole,
-        fileBaseName + '.jpg',
+        displayName,
+        driveFileId,
         driveUrl,
         thumbnailUrl,
         stored.mimeType,
@@ -74,7 +101,7 @@ export async function handleUploadGalleryImage(request: Request, env: Env): Prom
         success: true,
         galleryId,
         shopId,
-        driveFileId: stored.key,
+        driveFileId: stored.storage === 'drive' ? stored.driveFileId : stored.key,
         driveUrl,
         thumbnailUrl,
       },

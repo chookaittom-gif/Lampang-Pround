@@ -2773,6 +2773,7 @@
           mimeType: item.file && item.file.type ? item.file.type : 'image/jpeg',
           imageRole: item.role,
           sortOrder: _uploadTotal - _uploadQueue.length + 1,
+          idempotencyKey: item.id,
           base64: base64Data
         });
     };

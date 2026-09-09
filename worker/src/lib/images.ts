@@ -1,4 +1,5 @@
 import type { Env } from '../env';
+import { uploadDriveImage } from './drive-adapter';
 
 /** คัดลอกพฤติกรรม decodeBase64Payload_: ตัด prefix ก่อน 'base64,' แล้ว decode */
 export function decodeBase64Payload(rawContent: string): Uint8Array {
@@ -27,12 +28,16 @@ export function sniffImageMime(bytes: Uint8Array): 'image/jpeg' | 'image/png' | 
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 
 export interface StoredImage {
+  storage: 'r2' | 'drive';
   key: string;
   size: number;
   mimeType: string;
+  driveFileId: string;
+  driveUrl: string;
+  thumbnailUrl: string;
 }
 
-/** เก็บรูปลง R2 ใต้โฟลเดอร์ร้าน (parity กับ getOrCreateAssetFolder_) + ลงทะเบียน r2_objects
+/** เก็บรูปใต้โฟลเดอร์ร้านตาม storage ที่ตั้งค่าไว้; R2 จะลงทะเบียนใน r2_objects
  *  key: shops/<shopId>/<galleryId>.<ext> */
 export async function storeImage(
   env: Env,
@@ -40,7 +45,8 @@ export async function storeImage(
   fileName: string,
   bytes: Uint8Array,
   source: 'legacy_base64' | 'drive' | 'upload',
-  sourceRef = ''
+  sourceRef = '',
+  idempotencyKey = ''
 ): Promise<StoredImage> {
   const mime = sniffImageMime(bytes);
   if (!mime) throw new Error('Unsupported image format.');
@@ -50,6 +56,27 @@ export async function storeImage(
   const safeShop = String(shopId || 'Unassigned').replace(/[^A-Za-z0-9._-]/g, '_');
   const safeName = String(fileName || 'upload').replace(/[^A-Za-z0-9._-]/g, '_');
   const key = `shops/${safeShop}/${safeName}.${ext}`;
+  const storage = String(env.IMAGE_STORAGE || 'r2').trim().toLowerCase();
+  if (storage === 'drive') {
+    const stored = await uploadDriveImage(env, {
+      shopId: safeShop,
+      fileName: key.split('/').pop() || `upload.${ext}`,
+      mimeType: mime,
+      bytes,
+      idempotencyKey,
+    });
+    return {
+      storage: 'drive',
+      key: '',
+      size: stored.size,
+      mimeType: stored.mimeType,
+      driveFileId: stored.driveFileId,
+      driveUrl: stored.driveUrl,
+      thumbnailUrl: stored.thumbnailUrl,
+    };
+  }
+  if (storage !== 'r2') throw new Error(`Unsupported image storage: ${storage}`);
+  if (!env.ASSETS) throw new Error('R2 image storage is not configured.');
   await env.ASSETS.put(key, bytes, {
     httpMetadata: { contentType: mime },
   });
@@ -62,5 +89,13 @@ export async function storeImage(
   )
     .bind(key, source, sourceRef, safeShop, mime, bytes.length)
     .run();
-  return { key, size: bytes.length, mimeType: mime };
+  return {
+    storage: 'r2',
+    key,
+    size: bytes.length,
+    mimeType: mime,
+    driveFileId: '',
+    driveUrl: '',
+    thumbnailUrl: '',
+  };
 }

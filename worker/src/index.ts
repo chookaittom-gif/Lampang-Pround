@@ -74,10 +74,10 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
     return handleExcelDownload(request, env);
   }
 
-  // รูปจาก R2: GET /images/<key>
+  // รูปจาก R2 เมื่อ environment นั้นผูก ASSETS: GET /images/<key>
   if (request.method === 'GET' && path.startsWith('/images/')) {
     const key = decodeURIComponent(path.slice('/images/'.length));
-    if (!key || key.includes('..')) {
+    if (!env.ASSETS || !key || key.includes('..')) {
       return new Response('Not found', { status: 404 });
     }
     const object = await env.ASSETS.get(key);

@@ -185,6 +185,7 @@ async function embedImage(env: Env, pdf: PDFDocument, url: string): Promise<PDFI
   try {
     let bytes: Uint8Array | null = null;
     if (url.startsWith('r2:')) {
+      if (!env.ASSETS) return null;
       const object = await env.ASSETS.get(url.slice(3));
       if (!object) return null;
       bytes = new Uint8Array(await object.arrayBuffer());

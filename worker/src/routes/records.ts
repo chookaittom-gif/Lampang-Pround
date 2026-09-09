@@ -44,7 +44,7 @@ async function getLegacyByBackendId(
     .first<LegacyRowRaw>();
 }
 
-/** ถ้าค่ารูปเป็น data URL → ย้ายลง R2 คืน object key, อื่น ๆ คืนตามเดิม (URL/empty) */
+/** ถ้าค่ารูปเป็น data URL → ย้ายไป storage ที่ตั้งค่าไว้, อื่น ๆ คืนตามเดิม (URL/empty) */
 async function resolveImageRef(
   env: Env,
   shopId: string,
@@ -56,7 +56,7 @@ async function resolveImageRef(
   if (text.startsWith('data:image/')) {
     const bytes = decodeBase64Payload(text);
     const stored = await storeImage(env, shopId, name, bytes, 'legacy_base64', name);
-    return stored.key;
+    return stored.storage === 'drive' ? stored.driveUrl : stored.key;
   }
   return text;
 }
@@ -109,7 +109,7 @@ export async function replaceProductsByShopId(
 
 /** คัดลอกพฤติกรรม syncProductGalleryFromItems_ (บรรทัด 1551–1625):
  *  soft-delete รูป role product/gallery ของร้าน แล้ว re-upload รูปจาก product items
- *  ต่างจากเดิม: R2 upload ทั้งหมดก่อน แล้วจึงเขียน D1 ครั้งเดียว — ไม่มี partial write */
+ *  อัปโหลดทั้งหมดก่อน แล้วจึงเขียน D1 ครั้งเดียว — ไม่มี partial write */
 async function syncProductGalleryFromItems(
   env: Env,
   shopId: string,
@@ -157,7 +157,6 @@ async function syncProductGalleryFromItems(
   ];
 
   for (const upload of uploads) {
-    let key = '';
     let driveFileId = '';
     let driveUrl = '';
     let thumbnailUrl = '';
@@ -171,11 +170,16 @@ async function syncProductGalleryFromItems(
         upload.bytes,
         'upload'
       );
-      key = stored.key;
       mimeType = stored.mimeType;
       fileSize = stored.size;
-      driveUrl = `${origin}/images/${key}`;
-      thumbnailUrl = driveUrl;
+      if (stored.storage === 'drive') {
+        driveFileId = stored.driveFileId;
+        driveUrl = stored.driveUrl;
+        thumbnailUrl = stored.thumbnailUrl;
+      } else {
+        driveUrl = `${origin}/images/${stored.key}`;
+        thumbnailUrl = driveUrl;
+      }
     } else if (upload.driveFileId) {
       driveFileId = upload.driveFileId;
       // คัดลอกพฤติกรรม appendGalleryRowFromDriveFile_: อ้างไฟล์เดิมของ Drive
@@ -186,7 +190,7 @@ async function syncProductGalleryFromItems(
         .bind(driveFileId)
         .first<{ object_key: string }>();
       if (existing) {
-        key = existing.object_key;
+        const key = existing.object_key;
         driveUrl = `${origin}/images/${key}`;
         thumbnailUrl = driveUrl;
       } else {
@@ -219,7 +223,6 @@ async function syncProductGalleryFromItems(
         userName
       )
     );
-    void key;
   }
 
   const results = await env.DB.batch(statements);
