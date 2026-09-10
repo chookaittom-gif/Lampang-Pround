@@ -6,15 +6,15 @@ import { parseJsonArray } from '../lib/format';
 import sarabunRegular from '../assets/Sarabun-Regular.ttf';
 import sarabunBold from '../assets/Sarabun-Bold.ttf';
 
-/** ค่า layout คัดลอกจาก constants ของ Code.gs (บรรทัด 12–27) — layout version v13 */
+/** ค่า layout A4 สำหรับ native PDF ใช้ palette เดิมและปรับการไหลของเนื้อหา — layout version v14 */
 const PAGE_W = 595;
 const PAGE_H = 842;
 const MARGIN = 36;
 const CONTENT_W = PAGE_W - MARGIN * 2;
-const LABEL_W = 180;
-const VALUE_W = 343;
-const PRODUCT_COL_WIDTHS = [34, 108, 116, 78, 62, 125];
-const IMAGE_CELL_SIZE = 180;
+const LABEL_W = 128;
+const PRODUCT_COL_WIDTHS = [34, 150, 108, 165, 66];
+const IMAGE_CELL_SIZE = 220;
+const GALLERY_FRAME_MAX_HEIGHT = 190;
 const TABLE_BORDER = rgb(0xb4 / 255, 0xc2 / 255, 0xd2 / 255);
 const TABLE_HEADER_BG = rgb(0xdb / 255, 0xea / 255, 0xfe / 255);
 const LABEL_BG = rgb(0xf8 / 255, 0xfa / 255, 0xfc / 255);
@@ -230,42 +230,11 @@ function isProductGalleryItem(item: PdfGalleryItem): boolean {
   return role === 'product' || role === 'gallery';
 }
 
-function isUnlinkedGalleryProductId(productId: string): boolean {
-  const value = String(productId || '').trim().toLowerCase();
-  return !value || value === 'null' || value === 'undefined';
-}
-
-/** คัดลอกลำดับจับคู่รูปกับสินค้าให้ตรงกับ frontend: ProductID → SortOrder → index */
-function findProductGalleryItem(
-  product: PdfProduct,
-  gallery: PdfGalleryItem[],
-  productIndex: number
-): PdfGalleryItem | null {
-  const productGallery = gallery.filter(isProductGalleryItem);
-  const productId = String(product.ProductID || '').trim();
-  if (productId) {
-    const linked = productGallery.find(
-      (item) => !isUnlinkedGalleryProductId(item.ProductID) && String(item.ProductID).trim() === productId
-    );
-    if (linked) return linked;
-  }
-  const loose = productGallery
-    .filter((item) => isUnlinkedGalleryProductId(item.ProductID))
-    .slice()
-    .sort((a, b) => Number(a.SortOrder || 0) - Number(b.SortOrder || 0));
-  const sortOrder = Number.isFinite(Number(product.SortOrder))
-    ? Number(product.SortOrder)
-    : productIndex + 1;
-  const byOrder = loose.find((item) => Number(item.SortOrder || 0) === sortOrder);
-  return byOrder || loose[productIndex] || null;
-}
-
-/** คัดลอกตรงจาก getGalleryGridConfig_: ≤3→1 แถว, ≤4→2×2, ≤6→2 คอลัมน์, อื่น ๆ 3×3 */
+/** PDF gallery: ใช้ 2 คอลัมน์เพื่อให้ภาพและคำบรรยายอ่านได้ชัดบน A4 */
 function galleryGridConfig(count: number): { rows: number; cols: number } {
-  if (count <= 3) return { rows: 1, cols: Math.max(count, 1) };
-  if (count <= 4) return { rows: 2, cols: 2 };
-  if (count <= 6) return { rows: Math.ceil(count / 2), cols: 2 };
-  return { rows: 3, cols: 3 };
+  if (count <= 1) return { rows: 1, cols: 1 };
+  if (count <= 4) return { rows: Math.ceil(count / 2), cols: 2 };
+  return { rows: Math.ceil(count / 3), cols: 3 };
 }
 
 function truncate(text: string, font: PDFFont, size: number, maxWidth: number): string {
@@ -359,62 +328,180 @@ export async function exportShopPdfNative(
     y -= 28;
   };
 
-  const drawLabelValueTable = (rows: [string, string][]): void => {
+  const drawLabelValueTable = (
+    rows: [string, string][],
+    options: {
+      x?: number;
+      width?: number;
+      labelWidth?: number;
+      maxLines?: number;
+      fontSize?: number;
+    } = {}
+  ): void => {
+    const x = options.x ?? MARGIN;
+    const width = options.width ?? CONTENT_W;
+    const labelWidth = options.labelWidth ?? LABEL_W;
+    const maxLines = options.maxLines ?? 4;
+    const fontSize = options.fontSize ?? 10.5;
+    const lineHeight = fontSize + 1.5;
+    const valueWidth = width - labelWidth;
+
     for (const [label, value] of rows) {
-      const lines = wrapText(value, regular, 10.5, VALUE_W - 10, 3);
-      const rowH = Math.max(26, lines.length * 11 + 12);
+      const lines = wrapText(value, regular, fontSize, valueWidth - 10, maxLines);
+      const rowH = Math.max(25, lines.length * lineHeight + 11);
       ensureSpace(rowH);
       const top = y;
-      page.drawRectangle({ x: MARGIN, y: top - rowH, width: LABEL_W, height: rowH, borderColor: TABLE_BORDER, borderWidth: 0.75, color: LABEL_BG });
-      page.drawRectangle({ x: MARGIN + LABEL_W, y: top - rowH, width: VALUE_W, height: rowH, borderColor: TABLE_BORDER, borderWidth: 0.75, color: WHITE });
-      text(truncate(label, bold, 10.5, LABEL_W - 10), MARGIN + 6, top - 10, 10.5, bold, TEXT_BODY);
+      page.drawRectangle({ x, y: top - rowH, width: labelWidth, height: rowH, borderColor: TABLE_BORDER, borderWidth: 0.75, color: LABEL_BG });
+      page.drawRectangle({ x: x + labelWidth, y: top - rowH, width: valueWidth, height: rowH, borderColor: TABLE_BORDER, borderWidth: 0.75, color: WHITE });
+      text(truncate(label, bold, fontSize, labelWidth - 10), x + 6, top - 10, fontSize, bold, TEXT_BODY);
       lines.forEach((line, index) => {
-        text(line, MARGIN + LABEL_W + 6, top - 10 - index * 11, 10.5, regular, TEXT_BODY);
+        text(line, x + labelWidth + 6, top - 10 - index * lineHeight, fontSize, regular, TEXT_BODY);
       });
       y -= rowH;
     }
   };
 
+  const drawInfoColumns = (
+    leftTitle: string,
+    leftRows: [string, string][],
+    rightTitle: string,
+    rightRows: [string, string][]
+  ): void => {
+    const gap = 14;
+    const columnWidth = (CONTENT_W - gap) / 2;
+    const labelWidth = 82;
+    const valueWidth = columnWidth - labelWidth;
+    const fontSize = 9.5;
+    const lineHeight = 10.5;
+    const headerHeight = 25;
+    const rowHeight = (row: [string, string] | undefined): number => {
+      if (!row) return 23;
+      const lines = wrapText(row[1], regular, fontSize, valueWidth - 10, 2);
+      return Math.max(23, lines.length * lineHeight + 10);
+    };
+    const rowCount = Math.max(leftRows.length, rightRows.length);
+    const rowHeights = Array.from({ length: rowCount }, (_, index) =>
+      Math.max(rowHeight(leftRows[index]), rowHeight(rightRows[index]))
+    );
+    const totalHeight = headerHeight + rowHeights.reduce((sum, height) => sum + height, 0);
+    if (y - totalHeight < MARGIN) newPage();
+
+    const rightX = MARGIN + columnWidth + gap;
+    page.drawRectangle({ x: MARGIN, y: y - headerHeight, width: columnWidth, height: headerHeight, borderColor: TABLE_BORDER, borderWidth: 0.75, color: TABLE_HEADER_BG });
+    page.drawRectangle({ x: rightX, y: y - headerHeight, width: columnWidth, height: headerHeight, borderColor: TABLE_BORDER, borderWidth: 0.75, color: TABLE_HEADER_BG });
+    text(leftTitle, MARGIN + 8, y - 16, 12, bold, TEXT_BODY);
+    text(rightTitle, rightX + 8, y - 16, 12, bold, TEXT_BODY);
+    y -= headerHeight;
+
+    const drawRow = (
+      row: [string, string] | undefined,
+      x: number,
+      top: number,
+      height: number
+    ): void => {
+      const labelColor = row ? LABEL_BG : WHITE;
+      page.drawRectangle({ x, y: top - height, width: labelWidth, height, borderColor: TABLE_BORDER, borderWidth: 0.75, color: labelColor });
+      page.drawRectangle({ x: x + labelWidth, y: top - height, width: valueWidth, height, borderColor: TABLE_BORDER, borderWidth: 0.75, color: WHITE });
+      if (!row) return;
+      const lines = wrapText(row[1], regular, fontSize, valueWidth - 10, 2);
+      text(truncate(row[0], bold, fontSize, labelWidth - 10), x + 5, top - 9, fontSize, bold, TEXT_BODY);
+      lines.forEach((line, index) => {
+        text(line, x + labelWidth + 5, top - 9 - index * lineHeight, fontSize, regular, TEXT_BODY);
+      });
+    };
+
+    rowHeights.forEach((height, index) => {
+      const top = y;
+      drawRow(leftRows[index], MARGIN, top, height);
+      drawRow(rightRows[index], rightX, top, height);
+      y -= height;
+    });
+  };
+
+  const drawSummaryMetrics = (items: [string, string][]): void => {
+    const gap = 14;
+    const cellWidth = (CONTENT_W - gap * 2) / 3;
+    const cellHeight = 44;
+    if (y - cellHeight < MARGIN) newPage();
+    const top = y;
+    items.forEach(([label, value], index) => {
+      const x = MARGIN + index * (cellWidth + gap);
+      page.drawRectangle({ x, y: top - cellHeight, width: cellWidth, height: cellHeight, borderColor: TABLE_BORDER, borderWidth: 0.75, color: LABEL_BG });
+      text(label, x + 8, top - 15, 8.5, regular, TEXT_CAPTION);
+      text(value, x + 8, top - 34, 13, bold, TEXT_DARK);
+    });
+    y -= cellHeight + 12;
+  };
+
   const productCategory = parseJsonArray(shop.ProductCategory).join(', ');
   const salesChannel = parseJsonArray(shop.SalesChannel).join(', ');
-  drawSectionHeading('ข้อมูลร้านค้าและประวัติ');
-  drawLabelValueTable([
+  drawInfoColumns('ข้อมูลร้านค้า', [
     ['ชื่อร้านค้า', display(shop.BusinessName)],
     ['ชื่อเจ้าของ', display(shop.OwnerName)],
     ['เบอร์โทร', display(shop.Phone)],
     ['Line ID', display(shop.LineID)],
     ['Facebook', display(shop.Facebook)],
     ['เว็บไซต์', display(shop.Website)],
-    ['ที่ตั้ง', display(shop.LocationText)],
-    ['ประวัติร้านค้า', display(shop.ShopHistory)],
-  ]);
-
-  drawSectionHeading('ข้อมูลธุรกิจ');
-  drawLabelValueTable([
+  ], 'ข้อมูลธุรกิจ', [
     ['ประเภทธุรกิจ', display(shop.BusinessType)],
     ['หมวดหมู่สินค้า', display(productCategory)],
     ['ระดับธุรกิจ', display(shop.BusinessLevel)],
     ['ช่องทางจำหน่าย', display(salesChannel)],
     ['ราคาเฉลี่ย', display(shop.AvgPrice)],
     ['สถานะธุรกิจ', display(shop.BusinessStatus)],
+  ]);
+
+  drawSummaryMetrics([
     ['ระดับศักยภาพ', display(shop.PotentialLevel)],
     ['จำนวนสินค้า', String(data.products.length)],
     ['จำนวนรูปภาพ', String(data.gallery.length)],
   ]);
 
-  // ── Products table (รูปสินค้าอยู่ในแถวเดียวกับข้อมูล และแบ่งหน้าอย่างปลอดภัย) ──
-  // ลำดับคอลัมน์: ลำดับ | รูปภาพ | ชื่อสินค้า | หมวดหมู่ | รายละเอียด | ราคา
+  drawSectionHeading('ที่ตั้งและประวัติ');
+  drawLabelValueTable([
+    ['ที่ตั้ง', display(shop.LocationText)],
+    ['ประวัติร้านค้า', display(shop.ShopHistory)],
+  ], { maxLines: 8 });
+
+  // ── Products table (ข้อความอ่านง่าย แล้วแสดงภาพใน gallery ด้านล่าง) ──
+  // ลำดับคอลัมน์: ลำดับ | ชื่อสินค้า | หมวดหมู่ | รายละเอียด | ราคา
   const productGallery = data.gallery.filter(isProductGalleryItem);
   const productTableHeaderHeight = 24;
-  const productTableImageSize = 54;
-  const productTableMinRowHeight = 66;
+  const productTableMinRowHeight = 26;
   const productTableFontSize = 9.5;
   const productTableLineHeight = 11;
-  const productTablePageSize = 6;
+  const productTableMaxLines = 5;
   const cols = PRODUCT_COL_WIDTHS;
   const total = cols.reduce((a, b) => a + b, 0);
   const startX = MARGIN + (CONTENT_W - total) / 2;
-  const headerRow = ['ลำดับ', 'รูปภาพ', 'ชื่อสินค้า', 'หมวดหมู่', 'รายละเอียด', 'ราคา'];
+  const headerRow = ['ลำดับ', 'ชื่อสินค้า', 'หมวดหมู่', 'รายละเอียด', 'ราคา'];
+
+  const measureProductRow = (
+    item: PdfProduct,
+    productIndex: number
+  ): { wrappedCells: string[][]; rowHeight: number } => {
+    const cells = [
+      String(productIndex + 1),
+      item.ProductName || NOT_SPECIFIED,
+      item.ProductCategory || NOT_SPECIFIED,
+      item.Description || NOT_SPECIFIED,
+      item.Price || NOT_SPECIFIED,
+    ];
+    const wrappedCells = cells.map((cell, cellIndex) =>
+      wrapText(
+        cell,
+        regular,
+        productTableFontSize,
+        cols[cellIndex] - 8,
+        cellIndex === 3 ? productTableMaxLines : 3
+      )
+    );
+    const textRowHeight = Math.max(
+      ...wrappedCells.map((lines) => lines.length * productTableLineHeight + 11),
+      productTableMinRowHeight
+    );
+    return { wrappedCells, rowHeight: textRowHeight };
+  };
 
   const drawProductTableHeader = (continuation: boolean): void => {
     drawSectionHeading(continuation ? 'สรุปรายการสินค้า (ต่อ)' : 'สรุปรายการสินค้า');
@@ -436,86 +523,46 @@ export async function exportShopPdfNative(
     y -= productTableHeaderHeight;
   };
 
-  for (let start = 0; start < data.products.length; start += productTablePageSize) {
-    if (start > 0) newPage();
-    const pageProducts = data.products.slice(start, start + productTablePageSize);
-    ensureSpace(22 + productTableHeaderHeight + productTableMinRowHeight * pageProducts.length);
-    drawProductTableHeader(start > 0);
-
-    for (let idx = 0; idx < pageProducts.length; idx++) {
-      const item = pageProducts[idx];
-      const productIndex = start + idx;
-      const cells = [
-        String(productIndex + 1),
-        '',
-        item.ProductName || NOT_SPECIFIED,
-        item.ProductCategory || NOT_SPECIFIED,
-        item.Description || NOT_SPECIFIED,
-        item.Price || NOT_SPECIFIED,
-      ];
-      const wrappedCells = cells.map((cell, cellIndex) =>
-        cellIndex === 1
-          ? []
-          : wrapText(cell, regular, productTableFontSize, cols[cellIndex] - 8, 4)
-      );
-      const textRowHeight = Math.max(
-        ...wrappedCells
-          .filter((lines) => lines.length > 0)
-          .map((lines) => lines.length * productTableLineHeight + 12),
-        productTableMinRowHeight
-      );
-      const rowHeight = Math.max(productTableImageSize + 12, textRowHeight);
-      if (y - rowHeight < MARGIN) {
-        newPage();
-        drawProductTableHeader(true);
+  if (data.products.length === 0) {
+    drawSectionHeading('สรุปรายการสินค้า');
+    text('ไม่มีสินค้า', MARGIN, y - 12, 10.5, regular, TEXT_CAPTION);
+    y -= 24;
+  } else {
+    for (let productIndex = 0; productIndex < data.products.length; productIndex++) {
+      const item = data.products[productIndex];
+      const metrics = measureProductRow(item, productIndex);
+      const headingAndHeaderHeight = 34 + productTableHeaderHeight;
+      if (productIndex === 0 || y - metrics.rowHeight < MARGIN) {
+        if (productIndex > 0) newPage();
+        if (y - headingAndHeaderHeight - metrics.rowHeight < MARGIN) newPage();
+        drawProductTableHeader(productIndex > 0);
       }
 
       const rowTop = y;
-      const imageItem = findProductGalleryItem(item, productGallery, productIndex);
-      const image = imageItem ? await embedCachedImage(imageItem.Url) : null;
       let x = startX;
       for (let i = 0; i < cols.length; i++) {
         page.drawRectangle({
           x,
-          y: rowTop - rowHeight,
+          y: rowTop - metrics.rowHeight,
           width: cols[i],
-          height: rowHeight,
+          height: metrics.rowHeight,
           borderColor: TABLE_BORDER,
           borderWidth: 0.75,
           color: WHITE,
         });
-        if (i === 1) {
-          if (image) {
-            const scale = Math.min(
-              (cols[i] - 8) / image.width,
-              (rowHeight - 8) / image.height
-            );
-            const imageWidth = image.width * scale;
-            const imageHeight = image.height * scale;
-            page.drawImage(image, {
-              x: x + (cols[i] - imageWidth) / 2,
-              y: rowTop - (rowHeight + imageHeight) / 2,
-              width: imageWidth,
-              height: imageHeight,
-            });
-          } else {
-            text(NO_IMAGE, x + 4, rowTop - rowHeight / 2 + 3, 8.5, regular, TEXT_CAPTION);
-          }
-        } else {
-          wrappedCells[i].forEach((line, lineIndex) => {
-            text(
-              line,
-              x + 4,
-              rowTop - 10 - lineIndex * productTableLineHeight,
-              productTableFontSize,
-              regular,
-              TEXT_BODY
-            );
-          });
-        }
+        metrics.wrappedCells[i].forEach((line, lineIndex) => {
+          text(
+            line,
+            x + 4,
+            rowTop - 10 - lineIndex * productTableLineHeight,
+            productTableFontSize,
+            regular,
+            TEXT_BODY
+          );
+        });
         x += cols[i];
       }
-      y -= rowHeight;
+      y -= metrics.rowHeight;
     }
   }
 
@@ -529,45 +576,62 @@ export async function exportShopPdfNative(
     const config = galleryGridConfig(productGallery.length);
     const gap = 16;
     const cellSize = Math.min(IMAGE_CELL_SIZE, (CONTENT_W - gap * (config.cols - 1)) / config.cols);
-    const captionH = 18;
-    const galleryRowH = cellSize + captionH + 8;
+    const gridWidth = cellSize * config.cols + gap * (config.cols - 1);
+    const gridX = MARGIN + (CONTENT_W - gridWidth) / 2;
+    const frameHeight = Math.min(GALLERY_FRAME_MAX_HEIGHT, Math.max(110, cellSize * 0.86));
+    const captionLineHeight = 11;
+    const captionH = captionLineHeight * 2 + 5;
+    const galleryRowH = frameHeight + captionH + 8;
+    const galleryHeadingHeight = 34;
     const drawGalleryHeading = (continuation = false): void => {
       y -= 6;
       text(continuation ? 'รูปสินค้า/ผลิตภัณฑ์ (ต่อ)' : 'รูปสินค้า/ผลิตภัณฑ์', MARGIN, y - 14, 13.5, bold, TEXT_DARK);
       y -= 28;
     };
 
-    ensureSpace(28 + galleryRowH);
+    ensureSpace(galleryHeadingHeight + galleryRowH);
     drawGalleryHeading();
     let index = 0;
     while (index < productGallery.length) {
       if (index > 0 && y - galleryRowH < MARGIN) {
         newPage();
-        ensureSpace(28 + galleryRowH);
+        ensureSpace(galleryHeadingHeight + galleryRowH);
         drawGalleryHeading(true);
       }
       const rowItems = productGallery.slice(index, index + config.cols);
       const rowTop = y;
       for (let col = 0; col < rowItems.length; col++) {
         const item = rowItems[col];
-        const cellX = MARGIN + col * (cellSize + gap);
+        const cellX = gridX + col * (cellSize + gap);
         const cellTop = rowTop;
         const image = await embedCachedImage(item.Url);
+        page.drawRectangle({
+          x: cellX,
+          y: cellTop - frameHeight,
+          width: cellSize,
+          height: frameHeight,
+          borderColor: TABLE_BORDER,
+          borderWidth: 0.75,
+          color: LABEL_BG,
+        });
         if (image) {
-          const scale = Math.min(cellSize / image.width, cellSize / image.height);
+          const scale = Math.min((cellSize - 12) / image.width, (frameHeight - 12) / image.height);
           const w = image.width * scale;
           const h = image.height * scale;
           page.drawImage(image, {
             x: cellX + (cellSize - w) / 2,
-            y: cellTop - cellSize + (cellSize - h) / 2,
+            y: cellTop - frameHeight + (frameHeight - h) / 2,
             width: w,
             height: h,
           });
         } else {
-          text(NO_IMAGE, cellX + 4, cellTop - cellSize / 2, 10, regular, TEXT_CAPTION);
+          text(NO_IMAGE, cellX + 8, cellTop - frameHeight / 2, 10, regular, TEXT_CAPTION);
         }
         const caption = galleryCaption(item, data.products, index + col);
-        text(truncate(caption, regular, 10, cellSize), cellX, cellTop - cellSize - captionH + 8, 10, regular, TEXT_CAPTION);
+        const captionLines = wrapText(caption, regular, 9.5, cellSize - 8, 2);
+        captionLines.forEach((line, lineIndex) => {
+          text(line, cellX + 4, cellTop - frameHeight - 12 - lineIndex * captionLineHeight, 9.5, regular, TEXT_CAPTION);
+        });
       }
       y -= galleryRowH;
       index += rowItems.length;
