@@ -10,17 +10,26 @@ export function normalizePhoneValue(value: unknown): string {
   return digits || text;
 }
 
+const thaiBuddhistDateOptions: Intl.DateTimeFormatOptions = {
+  year: 'numeric',
+  month: 'short',
+  day: 'numeric',
+};
+let thaiBuddhistDateFormatter: Intl.DateTimeFormat | null = null;
+
 /** คัดลอกตรงจาก buildRecordFromRow_ — Date cell → ไทยพุทธศักราช
- *  toLocaleDateString('th-TH-u-ca-buddhist', { year:'numeric', month:'short', day:'numeric' }) */
+ *  ใช้ formatter เดิมซ้ำเพื่อไม่สร้าง Intl formatter ใหม่ทุกแถว */
 export function thaiBuddhistDate(iso: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;
   try {
-    return date.toLocaleDateString('th-TH-u-ca-buddhist', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
+    if (!thaiBuddhistDateFormatter) {
+      thaiBuddhistDateFormatter = new Intl.DateTimeFormat(
+        'th-TH-u-ca-buddhist',
+        thaiBuddhistDateOptions
+      );
+    }
+    return thaiBuddhistDateFormatter.format(date);
   } catch {
     return iso;
   }
