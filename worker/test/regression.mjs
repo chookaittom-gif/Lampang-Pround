@@ -145,6 +145,15 @@ async function main() {
     assert(html.toLowerCase().includes('<html'), 'html body');
   });
 
+  await test('Static favicon → 200 SVG', async () => {
+    const resp = await fetch(`${BASE}/favicon.svg`);
+    eq(resp.status, 200, 'status');
+    assert(String(resp.headers.get('content-type') || '').includes('image/svg+xml'), 'svg content-type');
+    const legacyResp = await fetch(`${BASE}/favicon.ico`);
+    eq(legacyResp.status, 200, 'legacy status');
+    assert(String(legacyResp.headers.get('content-type') || '').includes('image/svg+xml'), 'legacy svg content-type');
+  });
+
   await test('Unknown RPC → 404', async () => {
     const { status, data } = await rpc('noSuchFunction', {});
     eq(status, 404, 'status');

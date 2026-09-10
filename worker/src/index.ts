@@ -118,6 +118,9 @@ export default {
         );
       }
     }
+    if (request.method === 'GET' && url.pathname === '/favicon.ico' && env.STATIC) {
+      return env.STATIC.fetch(new Request(new URL('/favicon.svg', request.url), request));
+    }
     // หน้าเว็บ static (frontend build) — Workers Static Assets
     if (env.STATIC) return env.STATIC.fetch(request);
     return new Response('Frontend not deployed. Run: npm run build -w frontend', {
