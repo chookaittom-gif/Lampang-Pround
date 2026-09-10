@@ -3641,7 +3641,7 @@
     if (label === 'Facebook') {
       const fbInfo = resolveFacebookLink(text);
       const openBtnText = fbInfo.isSearch ? 'ค้นหา Facebook ใน Google' : 'เปิด Facebook';
-      const actionIcon = fbInfo.isSearch ? 'search' : (icon || 'facebook');
+      const actionIcon = fbInfo.isSearch ? 'search' : (icon === 'facebook' ? 'globe' : (icon || 'link-2'));
       return '<div class="detail-field">'
         + '<p class="detail-label">' + escapeHtml(label) + '</p>'
         + '<p class="detail-value mb-3 truncate" title="' + escapeHtml(text) + '">' + escapeHtml(text) + '</p>'
