@@ -374,7 +374,7 @@ export async function handleGetRecords(request: Request, env: Env): Promise<Resp
     const origin = new URL(request.url).origin;
     const rows = await env.DB.prepare(
       `SELECT rowid AS sheet_row, ${LEGACY_COLS} FROM legacy_records
-       WHERE is_deleted = 'FALSE' ORDER BY rowid DESC`
+       WHERE UPPER(TRIM(is_deleted)) != 'TRUE' ORDER BY rowid DESC`
     )
       .all<LegacyRowRaw>()
       .then((r) => r.results);
