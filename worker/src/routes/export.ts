@@ -121,6 +121,9 @@ const EXCEL_HEADERS = [
   'ช่องทางจำหน่าย',
 ];
 const EXCEL_ID_BATCH_SIZE = 90;
+const EXCEL_COLUMN_WIDTHS = [8, 24, 18, 14, 24, 30, 14, 22];
+const EXCEL_DATA_ROW_MIN_HEIGHT = 24;
+const EXCEL_LINE_HEIGHT = 14;
 
 interface ExportRow {
   business_name: string;
@@ -145,6 +148,21 @@ function buildContactCell(row: ExportRow): string {
   return lines.length ? lines.join('\n') : '-';
 }
 
+function estimateExcelWrappedLines(value: unknown, width: number): number {
+  const charsPerLine = Math.max(1, Math.floor(width * 1.05));
+  return String(value ?? '')
+    .split(/\r?\n/)
+    .reduce((total, line) => total + Math.max(1, Math.ceil(Array.from(line).length / charsPerLine)), 0);
+}
+
+function estimateExcelRowHeight(values: unknown[]): number {
+  const lines = Math.max(
+    ...values.map((value, index) => estimateExcelWrappedLines(value, EXCEL_COLUMN_WIDTHS[index] || 12)),
+    1
+  );
+  return Math.max(EXCEL_DATA_ROW_MIN_HEIGHT, lines * EXCEL_LINE_HEIGHT + 6);
+}
+
 async function buildExcelWorkbook(
   env: Env,
   recordIds: string[],
@@ -153,6 +171,19 @@ async function buildExcelWorkbook(
   const exceljs = await import('exceljs');
   const workbook = new exceljs.Workbook();
   const sheet = workbook.addWorksheet('ข้อมูลผู้ประกอบการ');
+  sheet.pageSetup = {
+    paperSize: 9,
+    orientation: 'landscape',
+    fitToPage: true,
+    fitToWidth: 1,
+    fitToHeight: 0,
+    horizontalCentered: true,
+    showGridLines: false,
+    margins: { top: 0.45, left: 0.25, bottom: 0.45, right: 0.25, header: 0.2, footer: 0.2 },
+    printTitlesRow: '1:1',
+  };
+  sheet.properties.showGridLines = false;
+  sheet.views = [{ state: 'frozen', ySplit: 1, showGridLines: false }];
   const isUser = String(session?.role || '').trim().toLowerCase() === 'user';
   const ownershipClause = isUser
     ? ` AND LOWER(TRIM(COALESCE(created_by, ''))) = LOWER(TRIM(?))`
@@ -189,10 +220,11 @@ async function buildExcelWorkbook(
   }
 
   const headerRow = sheet.addRow(EXCEL_HEADERS);
+  headerRow.height = 30;
   headerRow.eachCell((cell) => {
     cell.font = { name: 'Sarabun', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
     cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E40AF' } };
-    cell.alignment = { vertical: 'middle', horizontal: 'center' };
+    cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
     cell.border = {
       top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
       left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
@@ -200,13 +232,13 @@ async function buildExcelWorkbook(
       right: { style: 'thin', color: { argb: 'FFCBD5E1' } },
     };
   });
-  [48, 150, 110, 90, 125, 172, 75, 105].forEach((width, i) => {
+  EXCEL_COLUMN_WIDTHS.forEach((width, i) => {
     sheet.getColumn(i + 1).width = width;
   });
 
   rows.forEach((row, index) => {
     const salesChannels = parseJsonArray(row.sales_channel).join(', ');
-    const added = sheet.addRow([
+    const values = [
       index + 1,
       row.business_name || '',
       row.owner_name || '',
@@ -215,9 +247,16 @@ async function buildExcelWorkbook(
       row.location_text || '',
       row.avg_price || '',
       salesChannels || '-',
-    ]);
-    added.eachCell((cell) => {
+    ];
+    const added = sheet.addRow(values);
+    added.height = estimateExcelRowHeight(values);
+    added.eachCell((cell, columnNumber) => {
       cell.font = { name: 'Sarabun', size: 10 };
+      cell.alignment = {
+        vertical: 'top',
+        horizontal: columnNumber === 1 || columnNumber === 4 ? 'center' : 'left',
+        wrapText: true,
+      };
       cell.border = {
         top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
         left: { style: 'thin', color: { argb: 'FFCBD5E1' } },

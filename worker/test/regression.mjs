@@ -51,6 +51,28 @@ async function test(name, fn) {
   }
 }
 
+async function countPdfImageDrawOperations(buffer) {
+  const { inflateSync } = await import('node:zlib');
+  const raw = Buffer.from(buffer);
+  const latin = raw.toString('latin1');
+  let content = '';
+  let cursor = 0;
+  while ((cursor = latin.indexOf('stream', cursor)) >= 0) {
+    let start = cursor + 6;
+    if (latin[start] === '\r') start++;
+    if (latin[start] === '\n') start++;
+    const end = latin.indexOf('endstream', start);
+    if (end < 0) break;
+    try {
+      content += inflateSync(raw.subarray(start, end)).toString('latin1');
+    } catch {
+      /* skip non-deflate streams and embedded image bytes */
+    }
+    cursor = end + 9;
+  }
+  return (content.match(/(?:^|\r?\n)\/Image-[0-9]+ Do(?:\r?\n|$)/g) || []).length;
+}
+
 const TINY_JPEG_B64 =
   '/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q==';
 
@@ -558,6 +580,19 @@ async function main() {
     );
     const buf = new Uint8Array(await resp.arrayBuffer());
     assert(buf[0] === 0x50 && buf[1] === 0x4b, 'PK magic');
+    const { default: ExcelJS } = await import('exceljs');
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(buf);
+    const sheet = workbook.getWorksheet('ข้อมูลผู้ประกอบการ');
+    assert(sheet, 'export worksheet');
+    eq(sheet.pageSetup.paperSize, 9, 'A4 paper size');
+    eq(sheet.pageSetup.orientation, 'landscape', 'landscape orientation');
+    eq(sheet.pageSetup.fitToPage, true, 'fit to page');
+    eq(sheet.pageSetup.fitToWidth, 1, 'one page wide');
+    eq(sheet.pageSetup.fitToHeight, 0, 'unlimited page height');
+    eq(sheet.pageSetup.printTitlesRow, '1:1', 'repeat header row');
+    assert(sheet.getCell('F2').alignment.wrapText === true, 'long text wrap');
+    assert(Number(sheet.getRow(2).height) > 24, 'long text row height');
   });
 
   await test('exportCleanExcelFile 300 IDs → batching avoids SQLite variable limit', async () => {
@@ -626,6 +661,7 @@ async function main() {
       const buf = new Uint8Array(await resp.arrayBuffer());
       assert(buf[0] === 0x25 && buf[1] === 0x50 && buf[2] === 0x44 && buf[3] === 0x46, '%PDF magic');
       assert(Buffer.from(buf).toString('latin1').includes('/Subtype /Image'), 'PDF embeds gallery image');
+      assert(await countPdfImageDrawOperations(buf) >= 2, 'PDF draws image in product table and gallery');
     });
 
     await test('exportShopPdf (PDF_NATIVE=on) → ได้ PDF จริง + Sarabun', async () => {

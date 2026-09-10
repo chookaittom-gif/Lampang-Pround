@@ -225,6 +225,41 @@ function galleryCaption(item: PdfGalleryItem, products: PdfProduct[], fallbackIn
   return `รูปสินค้า ลำดับที่ ${fallbackIndex + 1}`;
 }
 
+function isProductGalleryItem(item: PdfGalleryItem): boolean {
+  const role = String(item.ImageRole || '').trim().toLowerCase();
+  return role === 'product' || role === 'gallery';
+}
+
+function isUnlinkedGalleryProductId(productId: string): boolean {
+  const value = String(productId || '').trim().toLowerCase();
+  return !value || value === 'null' || value === 'undefined';
+}
+
+/** คัดลอกลำดับจับคู่รูปกับสินค้าให้ตรงกับ frontend: ProductID → SortOrder → index */
+function findProductGalleryItem(
+  product: PdfProduct,
+  gallery: PdfGalleryItem[],
+  productIndex: number
+): PdfGalleryItem | null {
+  const productGallery = gallery.filter(isProductGalleryItem);
+  const productId = String(product.ProductID || '').trim();
+  if (productId) {
+    const linked = productGallery.find(
+      (item) => !isUnlinkedGalleryProductId(item.ProductID) && String(item.ProductID).trim() === productId
+    );
+    if (linked) return linked;
+  }
+  const loose = productGallery
+    .filter((item) => isUnlinkedGalleryProductId(item.ProductID))
+    .slice()
+    .sort((a, b) => Number(a.SortOrder || 0) - Number(b.SortOrder || 0));
+  const sortOrder = Number.isFinite(Number(product.SortOrder))
+    ? Number(product.SortOrder)
+    : productIndex + 1;
+  const byOrder = loose.find((item) => Number(item.SortOrder || 0) === sortOrder);
+  return byOrder || loose[productIndex] || null;
+}
+
 /** คัดลอกตรงจาก getGalleryGridConfig_: ≤3→1 แถว, ≤4→2×2, ≤6→2 คอลัมน์, อื่น ๆ 3×3 */
 function galleryGridConfig(count: number): { rows: number; cols: number } {
   if (count <= 3) return { rows: 1, cols: Math.max(count, 1) };
@@ -298,6 +333,17 @@ export async function exportShopPdfNative(
     if (y - height < MARGIN) newPage();
   };
 
+  const embeddedImageCache = new Map<string, Promise<PDFImage | null>>();
+  const embedCachedImage = (url: string): Promise<PDFImage | null> => {
+    const key = String(url || '').trim();
+    if (!key) return Promise.resolve(null);
+    const cached = embeddedImageCache.get(key);
+    if (cached) return cached;
+    const pending = embedImage(env, pdf, key);
+    embeddedImageCache.set(key, pending);
+    return pending;
+  };
+
   // ── Header (v13) ──
   text(display(shop.BusinessName), MARGIN, y - 18, 18, bold, TEXT_DARK);
   y -= 30;
@@ -307,20 +353,22 @@ export async function exportShopPdfNative(
   y -= 26;
 
   const drawSectionHeading = (title: string): void => {
-    ensureSpace(34);
+    ensureSpace(42);
+    y -= 6;
     text(title, MARGIN, y - 14, 13.5, bold, TEXT_DARK);
-    y -= 22;
+    y -= 28;
   };
 
   const drawLabelValueTable = (rows: [string, string][]): void => {
-    const rowH = 26;
     for (const [label, value] of rows) {
+      const lines = wrapText(value, regular, 10.5, VALUE_W - 10, 3);
+      const rowH = Math.max(26, lines.length * 11 + 12);
       ensureSpace(rowH);
       const top = y;
       page.drawRectangle({ x: MARGIN, y: top - rowH, width: LABEL_W, height: rowH, borderColor: TABLE_BORDER, borderWidth: 0.75, color: LABEL_BG });
       page.drawRectangle({ x: MARGIN + LABEL_W, y: top - rowH, width: VALUE_W, height: rowH, borderColor: TABLE_BORDER, borderWidth: 0.75, color: WHITE });
       text(truncate(label, bold, 10.5, LABEL_W - 10), MARGIN + 6, top - 10, 10.5, bold, TEXT_BODY);
-      wrapText(value, regular, 10.5, VALUE_W - 10).forEach((line, index) => {
+      lines.forEach((line, index) => {
         text(line, MARGIN + LABEL_W + 6, top - 10 - index * 11, 10.5, regular, TEXT_BODY);
       });
       y -= rowH;
@@ -354,45 +402,124 @@ export async function exportShopPdfNative(
     ['จำนวนรูปภาพ', String(data.gallery.length)],
   ]);
 
-  // ── Products table (replaceProductsTable_: 6 แถว/หน้า, header ตรงบรรทัด 2632) ──
+  // ── Products table (รูปสินค้าอยู่ในแถวเดียวกับข้อมูล และแบ่งหน้าอย่างปลอดภัย) ──
   // ลำดับคอลัมน์: ลำดับ | รูปภาพ | ชื่อสินค้า | หมวดหมู่ | รายละเอียด | ราคา
-  // (ช่องรูปยังไม่วาดในเวอร์ชันนี้ — ข้อมูลรูปอยู่ในหมวด Gallery grid; รอเทียบ parity)
-  for (let start = 0; start < data.products.length; start += 6) {
-    if (start > 0) newPage();
-    const cols = PRODUCT_COL_WIDTHS;
-    const total = cols.reduce((a, b) => a + b, 0);
-    const startX = MARGIN + (CONTENT_W - total) / 2;
-    const rowH = 28;
-    ensureSpace(22 + rowH * 7);
-    drawSectionHeading('สรุปรายการสินค้า');
-    const headerRow = ['ลำดับ', 'รูปภาพ', 'ชื่อสินค้า', 'หมวดหมู่', 'รายละเอียด', 'ราคา'];
+  const productGallery = data.gallery.filter(isProductGalleryItem);
+  const productTableHeaderHeight = 24;
+  const productTableImageSize = 54;
+  const productTableMinRowHeight = 66;
+  const productTableFontSize = 9.5;
+  const productTableLineHeight = 11;
+  const productTablePageSize = 6;
+  const cols = PRODUCT_COL_WIDTHS;
+  const total = cols.reduce((a, b) => a + b, 0);
+  const startX = MARGIN + (CONTENT_W - total) / 2;
+  const headerRow = ['ลำดับ', 'รูปภาพ', 'ชื่อสินค้า', 'หมวดหมู่', 'รายละเอียด', 'ราคา'];
+
+  const drawProductTableHeader = (continuation: boolean): void => {
+    drawSectionHeading(continuation ? 'สรุปรายการสินค้า (ต่อ)' : 'สรุปรายการสินค้า');
     let x = startX;
-    let rowTop = y;
+    const rowTop = y;
     for (let i = 0; i < cols.length; i++) {
-      page.drawRectangle({ x, y: rowTop - rowH, width: cols[i], height: rowH, borderColor: TABLE_BORDER, borderWidth: 0.75, color: TABLE_HEADER_BG });
-      text(headerRow[i], x + 4, rowTop - 18, 10.5, bold, TEXT_BODY);
+      page.drawRectangle({
+        x,
+        y: rowTop - productTableHeaderHeight,
+        width: cols[i],
+        height: productTableHeaderHeight,
+        borderColor: TABLE_BORDER,
+        borderWidth: 0.75,
+        color: TABLE_HEADER_BG,
+      });
+      text(headerRow[i], x + 4, rowTop - 16, 10, bold, TEXT_BODY);
       x += cols[i];
     }
-    y -= rowH;
-    data.products.slice(start, start + 6).forEach((item, idx) => {
-      rowTop = y;
-      x = startX;
-      const cells = [String(start + idx + 1), '', item.ProductName || NOT_SPECIFIED, item.ProductCategory || NOT_SPECIFIED, item.Description || NOT_SPECIFIED, item.Price || NOT_SPECIFIED];
+    y -= productTableHeaderHeight;
+  };
+
+  for (let start = 0; start < data.products.length; start += productTablePageSize) {
+    if (start > 0) newPage();
+    const pageProducts = data.products.slice(start, start + productTablePageSize);
+    ensureSpace(22 + productTableHeaderHeight + productTableMinRowHeight * pageProducts.length);
+    drawProductTableHeader(start > 0);
+
+    for (let idx = 0; idx < pageProducts.length; idx++) {
+      const item = pageProducts[idx];
+      const productIndex = start + idx;
+      const cells = [
+        String(productIndex + 1),
+        '',
+        item.ProductName || NOT_SPECIFIED,
+        item.ProductCategory || NOT_SPECIFIED,
+        item.Description || NOT_SPECIFIED,
+        item.Price || NOT_SPECIFIED,
+      ];
+      const wrappedCells = cells.map((cell, cellIndex) =>
+        cellIndex === 1
+          ? []
+          : wrapText(cell, regular, productTableFontSize, cols[cellIndex] - 8, 4)
+      );
+      const textRowHeight = Math.max(
+        ...wrappedCells
+          .filter((lines) => lines.length > 0)
+          .map((lines) => lines.length * productTableLineHeight + 12),
+        productTableMinRowHeight
+      );
+      const rowHeight = Math.max(productTableImageSize + 12, textRowHeight);
+      if (y - rowHeight < MARGIN) {
+        newPage();
+        drawProductTableHeader(true);
+      }
+
+      const rowTop = y;
+      const imageItem = findProductGalleryItem(item, productGallery, productIndex);
+      const image = imageItem ? await embedCachedImage(imageItem.Url) : null;
+      let x = startX;
       for (let i = 0; i < cols.length; i++) {
-        page.drawRectangle({ x, y: rowTop - rowH, width: cols[i], height: rowH, borderColor: TABLE_BORDER, borderWidth: 0.75, color: WHITE });
-        if (i !== 1) {
-          wrapText(cells[i], regular, 10.5, cols[i] - 8).forEach((line, lineIndex) => {
-            text(line, x + 4, rowTop - 10 - lineIndex * 11, 10.5, regular, TEXT_BODY);
+        page.drawRectangle({
+          x,
+          y: rowTop - rowHeight,
+          width: cols[i],
+          height: rowHeight,
+          borderColor: TABLE_BORDER,
+          borderWidth: 0.75,
+          color: WHITE,
+        });
+        if (i === 1) {
+          if (image) {
+            const scale = Math.min(
+              (cols[i] - 8) / image.width,
+              (rowHeight - 8) / image.height
+            );
+            const imageWidth = image.width * scale;
+            const imageHeight = image.height * scale;
+            page.drawImage(image, {
+              x: x + (cols[i] - imageWidth) / 2,
+              y: rowTop - (rowHeight + imageHeight) / 2,
+              width: imageWidth,
+              height: imageHeight,
+            });
+          } else {
+            text(NO_IMAGE, x + 4, rowTop - rowHeight / 2 + 3, 8.5, regular, TEXT_CAPTION);
+          }
+        } else {
+          wrappedCells[i].forEach((line, lineIndex) => {
+            text(
+              line,
+              x + 4,
+              rowTop - 10 - lineIndex * productTableLineHeight,
+              productTableFontSize,
+              regular,
+              TEXT_BODY
+            );
           });
         }
         x += cols[i];
       }
-      y -= rowH;
-    });
+      y -= rowHeight;
+    }
   }
 
   // ── Gallery grid ('รูปสินค้า/ผลิตภัณฑ์' เท่านั้น — renderGallerySectionsForPdf_) ──
-  const productGallery = data.gallery.filter((g) => g.ImageRole === 'product' || g.ImageRole === 'gallery');
   if (productGallery.length === 0) {
     // คัดลอกพฤติกรรม insert/append renderer: หมวดว่าง → 'ไม่มีรูปข้อมูล'
     drawSectionHeading('รูปสินค้า/ผลิตภัณฑ์');
@@ -405,17 +532,18 @@ export async function exportShopPdfNative(
     const captionH = 18;
     const galleryRowH = cellSize + captionH + 8;
     const drawGalleryHeading = (continuation = false): void => {
+      y -= 6;
       text(continuation ? 'รูปสินค้า/ผลิตภัณฑ์ (ต่อ)' : 'รูปสินค้า/ผลิตภัณฑ์', MARGIN, y - 14, 13.5, bold, TEXT_DARK);
-      y -= 22;
+      y -= 28;
     };
 
-    ensureSpace(22 + galleryRowH);
+    ensureSpace(28 + galleryRowH);
     drawGalleryHeading();
     let index = 0;
     while (index < productGallery.length) {
       if (index > 0 && y - galleryRowH < MARGIN) {
         newPage();
-        ensureSpace(22 + galleryRowH);
+        ensureSpace(28 + galleryRowH);
         drawGalleryHeading(true);
       }
       const rowItems = productGallery.slice(index, index + config.cols);
@@ -424,7 +552,7 @@ export async function exportShopPdfNative(
         const item = rowItems[col];
         const cellX = MARGIN + col * (cellSize + gap);
         const cellTop = rowTop;
-        const image = await embedImage(env, pdf, item.Url);
+        const image = await embedCachedImage(item.Url);
         if (image) {
           const scale = Math.min(cellSize / image.width, cellSize / image.height);
           const w = image.width * scale;
