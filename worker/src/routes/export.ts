@@ -1,4 +1,5 @@
 import type { Env } from '../env';
+import { getActiveSessionResult, type Session } from '../lib/auth';
 import { jsonResponse, readBody } from '../lib/http';
 import { parseJsonArray } from '../lib/format';
 
@@ -6,9 +7,38 @@ import { parseJsonArray } from '../lib/format';
  *  1) PDF_NATIVE='on' → สร้างใน Worker ด้วย pdf-lib + Sarabun (หลังผ่านการเทียบ parity ใน staging)
  *  2) GAS_WEB_APP_URL ตั้งไว้ → proxy ไป GAS (GAS ฝั่ง doGet จะเพิ่ม action API ในเฟส 8)
  *  3) ไม่มีทั้งสอง → 501 พร้อมข้อความชัดเจน
- *  ห้ามเปลี่ยน behavior ก่อนผ่านการเทียบ parity รายร้าน */
+ *  ห้ามเปลี่ยน layout/ข้อมูลก่อนผ่านการเทียบ parity รายร้าน */
 export async function handleExportShopPdf(request: Request, env: Env): Promise<Response> {
   const payload = (await readBody(request)) as Record<string, unknown>;
+  const token = String(payload.token ?? '').trim();
+  const authResult = await getActiveSessionResult(env, token);
+  if (authResult.error) return jsonResponse(authResult.error, 200, env);
+  const session = authResult.session;
+  const role = String(session?.role || '').trim().toLowerCase();
+  if (session && role !== 'admin' && role !== 'user') {
+    return jsonResponse({ success: false, message: 'คุณไม่มีสิทธิ์ดาวน์โหลดไฟล์นี้' }, 200, env);
+  }
+  const backendId = String(payload.backendId ?? '').trim();
+  if (role === 'user' || !session) {
+    const row = await env.DB.prepare(
+      `SELECT created_by FROM legacy_records
+       WHERE backend_id = ? AND UPPER(TRIM(COALESCE(is_deleted, ''))) != 'TRUE'`
+    )
+      .bind(backendId)
+      .first<{ created_by: string }>();
+    if (!row) return jsonResponse({ success: false, message: 'ไม่พบรายการในฐานข้อมูล' }, 200, env);
+    if (
+      role === 'user' &&
+      session &&
+      String(row.created_by || '').trim().toLowerCase() !== String(session.username).trim().toLowerCase()
+    ) {
+      return jsonResponse(
+        { success: false, message: 'คุณไม่มีสิทธิ์ดาวน์โหลดรายการของผู้อื่น' },
+        200,
+        env
+      );
+    }
+  }
 
   if (String(env.PDF_NATIVE || '').trim().toLowerCase() === 'on') {
     const { exportShopPdfNative } = await import('./pdf');
@@ -20,12 +50,14 @@ export async function handleExportShopPdf(request: Request, env: Env): Promise<R
     const url = new URL(request.url);
     const downloadUrl = `${url.origin}/api/export/pdf/${token}`;
     const stamp = thaiTimestamp();
+    const pdfFileName = `[TEMP] ${result.pdfName ?? 'shop-report'}_${stamp}.pdf`;
+    const asciiPdfFileName = pdfFileName.replace(/[^A-Za-z0-9._ -]/g, '_');
     await caches.default.put(
       downloadUrl,
       new Response(result.bytes as unknown as ArrayBuffer, {
         headers: {
           'content-type': 'application/pdf',
-          'content-disposition': `attachment; filename="[TEMP] ${result.pdfName ?? 'shop-report'}_${stamp}.pdf"`,
+          'content-disposition': `attachment; filename="${asciiPdfFileName}"; filename*=UTF-8''${encodeURIComponent(pdfFileName)}`,
           'cache-control': 'public, max-age=600',
         },
       })
@@ -112,11 +144,17 @@ function buildContactCell(row: ExportRow): string {
 
 async function buildExcelWorkbook(
   env: Env,
-  recordIds: string[]
+  recordIds: string[],
+  session: Session | null
 ): Promise<{ buffer: ArrayBuffer; count: number }> {
   const exceljs = await import('exceljs');
   const workbook = new exceljs.Workbook();
   const sheet = workbook.addWorksheet('ข้อมูลผู้ประกอบการ');
+  const isUser = String(session?.role || '').trim().toLowerCase() === 'user';
+  const ownershipClause = isUser
+    ? ` AND LOWER(TRIM(COALESCE(created_by, ''))) = LOWER(TRIM(?))`
+    : '';
+  const ownershipParam = isUser ? [session?.username ?? ''] : [];
 
   let rows: ExportRow[];
   if (recordIds.length) {
@@ -124,17 +162,18 @@ async function buildExcelWorkbook(
     rows = await env.DB.prepare(
       `SELECT business_name, owner_name, phone, line_id, facebook, website,
        location_text, avg_price, sales_channel FROM legacy_records
-       WHERE is_deleted = 'FALSE' AND backend_id IN (${placeholders}) ORDER BY rowid`
+       WHERE UPPER(TRIM(is_deleted)) != 'TRUE' AND backend_id IN (${placeholders})${ownershipClause} ORDER BY rowid`
     )
-      .bind(...recordIds)
+      .bind(...recordIds, ...ownershipParam)
       .all<ExportRow>()
       .then((r) => r.results);
   } else {
     rows = await env.DB.prepare(
       `SELECT business_name, owner_name, phone, line_id, facebook, website,
        location_text, avg_price, sales_channel FROM legacy_records
-       WHERE is_deleted = 'FALSE' ORDER BY rowid`
+       WHERE UPPER(TRIM(is_deleted)) != 'TRUE'${ownershipClause} ORDER BY rowid`
     )
+      .bind(...ownershipParam)
       .all<ExportRow>()
       .then((r) => r.results);
   }
@@ -188,13 +227,28 @@ async function buildExcelWorkbook(
 export async function handleExportExcel(request: Request, env: Env): Promise<Response> {
   try {
     const payload = (await readBody(request)) as Record<string, unknown>;
+    const token = String(payload.token ?? '').trim();
+    const authResult = await getActiveSessionResult(env, token);
+    if (authResult.error) return jsonResponse(authResult.error, 200, env);
+    const session = authResult.session;
+    const role = String(session?.role || '').trim().toLowerCase();
+    if (session && role !== 'admin' && role !== 'user') {
+      return jsonResponse({ success: false, message: 'คุณไม่มีสิทธิ์ดาวน์โหลดไฟล์นี้' }, 200, env);
+    }
     const recordIds = Array.isArray(payload.recordIds)
-      ? (payload.recordIds as unknown[]).map((v) => String(v)).filter(Boolean)
+      ? Array.from(new Set((payload.recordIds as unknown[]).map((v) => String(v)).filter(Boolean)))
       : [];
-    const { buffer, count } = await buildExcelWorkbook(env, recordIds);
-    const token = crypto.randomUUID();
+    const { buffer, count } = await buildExcelWorkbook(env, recordIds, session);
+    if (count === 0) {
+      return jsonResponse(
+        { success: false, message: 'ไม่พบรายการที่มีสิทธิ์ส่งออก' },
+        200,
+        env
+      );
+    }
+    const downloadToken = crypto.randomUUID();
     const url = new URL(request.url);
-    const downloadUrl = `${url.origin}/api/export/excel/${token}`;
+    const downloadUrl = `${url.origin}/api/export/excel/${downloadToken}`;
     const stamp = thaiTimestamp();
     await caches.default.put(
       downloadUrl,

@@ -345,6 +345,14 @@
   }
 
   function syncGuestActionControls() {
+    var exportBtn = document.getElementById('btn-export-excel');
+    if (exportBtn) {
+      var canExport = true;
+      exportBtn.disabled = !canExport;
+      exportBtn.classList.toggle('hidden', !canExport);
+      exportBtn.classList.toggle('pointer-events-none', !canExport);
+      exportBtn.classList.toggle('opacity-50', !canExport);
+    }
     var canManageEdit = canManageEditProducts();
     var editSelectors = [
       '#edit-submit-btn',
@@ -4238,13 +4246,32 @@
   }
 
   function downloadExcelData() {
+    if (_listExcelExportBusy) return;
+    var rows = Array.isArray(filteredRecordsData) ? filteredRecordsData.slice() : [];
+    if (rows.length === 0) {
+      showToast('ไม่มีข้อมูลสำหรับดาวน์โหลด', 'error');
+      return;
+    }
+    var activeIds = rows.map(function(r) { return r.BackendId; }).filter(Boolean);
+    if (activeIds.length === 0) {
+      showToast('ไม่พบรหัสรายการสำหรับดาวน์โหลด', 'error');
+      return;
+    }
+    var btn = document.getElementById('btn-export-excel');
+    var originalHtml = btn ? btn.innerHTML : '';
+    _listExcelExportBusy = true;
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span class="hidden sm:inline">กำลังสร้าง Excel...</span><span class="sm:hidden">...</span>';
+      if (window.lucide) lucide.createIcons();
+    }
     showToast('กำลังเตรียมไฟล์ Excel (.xlsx)...', 'info');
-    var activeIds = (Array.isArray(filteredRecordsData) && filteredRecordsData.length > 0)
-      ? filteredRecordsData.map(function(r) { return r.BackendId; }).filter(Boolean)
-      : [];
+    var restore = function() { restoreExcelExportButton_(btn, originalHtml); };
 
     google.script.run
       .withSuccessHandler(function(res) {
+        restore();
+        if (handleSessionInvalidResponse(res)) return;
         if (res && res.success && res.url) {
           showToast('ดาวน์โหลด Excel สำเร็จ (' + (res.count || activeIds.length) + ' รายการ)', 'success');
           window.open(res.url, '_blank');
@@ -4253,9 +4280,10 @@
         }
       })
       .withFailureHandler(function(err) {
+        restore();
         showToast('เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว: ' + ((err && err.message) || err), 'error');
       })
-      .exportCleanExcelFile({ recordIds: activeIds });
+      .exportCleanExcelFile({ recordIds: activeIds, token: _token });
   }
 
   function closeDetailModal() {
@@ -4373,9 +4401,10 @@
   window.downloadPdf = function(backendId) {
     if (!backendId) return;
     var btn = document.getElementById('btn-pdf-' + backendId);
+    if (btn && btn.disabled) return;
+    var originalHtml = btn ? btn.innerHTML : '';
     if (btn) {
       btn.disabled = true;
-      var originalHtml = btn.innerHTML;
       btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i>สร้าง PDF...';
       lucide.createIcons();
     }
@@ -4387,6 +4416,7 @@
           btn.innerHTML = originalHtml;
           lucide.createIcons();
         }
+        if (handleSessionInvalidResponse(res)) return;
         if (res && res.success && res.pdfUrl) {
           window.open(res.pdfUrl, '_blank');
           if (res.pdfFileId || res.docFileId) {

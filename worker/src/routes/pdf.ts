@@ -163,12 +163,21 @@ async function loadPdfData(env: Env, backendId: string): Promise<PdfShopData | n
       Description: String(p.description ?? ''),
       SortOrder: Number(p.sort_order ?? 0),
     })),
-    gallery: galleryRows.map((g) => ({
-      ProductID: String(g.product_id ?? ''),
-      ImageRole: String(g.image_role ?? 'gallery'),
-      SortOrder: Number(g.sort_order ?? 0),
-      Url: String(g.r2_key ?? '') ? `r2:${String(g.r2_key)}` : String(g.drive_url || g.thumbnail_url || ''),
-    })),
+    gallery: galleryRows.map((g) => {
+      const r2Key = String(g.r2_key ?? '').trim();
+      const thumbnailUrl = String(g.thumbnail_url ?? '').trim();
+      const driveUrl = String(g.drive_url ?? '').trim();
+      const driveFileId = String(g.drive_file_id ?? '').trim();
+      const driveFileUrl = /^[A-Za-z0-9_-]+$/.test(driveFileId)
+        ? `https://lh3.googleusercontent.com/d/${driveFileId}=w1600`
+        : '';
+      return {
+        ProductID: String(g.product_id ?? ''),
+        ImageRole: String(g.image_role ?? 'gallery'),
+        SortOrder: Number(g.sort_order ?? 0),
+        Url: r2Key ? `r2:${r2Key}` : thumbnailUrl || driveFileUrl || driveUrl,
+      };
+    }),
     createdAtIso: String(legacy.created_at ?? ''),
   };
 }

@@ -531,7 +531,7 @@ async function main() {
 
   await test('exportCleanExcelFile → url + count, ดาวน์โหลดได้ไฟล์ xlsx จริง', async () => {
     const { data } = await rpc('exportCleanExcelFile', {
-      token: ownerToken,
+      token: otherToken,
       recordIds: [guestBackendId],
     });
     eq(data.success, true, 'success');
@@ -544,6 +544,38 @@ async function main() {
     );
     const buf = new Uint8Array(await resp.arrayBuffer());
     assert(buf[0] === 0x50 && buf[1] === 0x4b, 'PK magic');
+  });
+
+  await test('exportCleanExcelFile guest → สำเร็จ', async () => {
+    const { data } = await rpc('exportCleanExcelFile', { recordIds: [guestBackendId] });
+    eq(data.success, true, 'success');
+    eq(data.count, 1, 'count');
+    const resp = await fetch(data.url);
+    eq(resp.status, 200, 'download status');
+    assert(
+      String(resp.headers.get('content-type') || '').includes('spreadsheetml'),
+      'xlsx content-type'
+    );
+    const buf = new Uint8Array(await resp.arrayBuffer());
+    assert(buf[0] === 0x50 && buf[1] === 0x4b, 'PK magic');
+  });
+
+  await test('exportCleanExcelFile user → ห้าม export รายการของผู้อื่น', async () => {
+    const { data } = await rpc('exportCleanExcelFile', {
+      token: ownerToken,
+      recordIds: [guestBackendId],
+    });
+    eq(data.success, false, 'success');
+    assert(String(data.message).includes('มีสิทธิ์'), 'user export ownership message');
+  });
+
+  await test('exportShopPdf user → ห้าม export รายการของผู้อื่น', async () => {
+    const { data } = await rpc('exportShopPdf', {
+      token: ownerToken,
+      backendId: guestBackendId,
+    });
+    eq(data.success, false, 'success');
+    assert(String(data.message).includes('ไม่มีสิทธิ์'), 'user PDF ownership message');
   });
 
   await test('cleanupTemporaryPdfFiles → parity success', async () => {
@@ -572,9 +604,19 @@ async function main() {
   });
 
   if (PDF_NATIVE) {
+    await test('exportShopPdf guest → ได้ PDF จริง + รูปภาพ', async () => {
+      const { data } = await rpc('exportShopPdf', { backendId: guestBackendId });
+      eq(data.success, true, `success (message: ${data && data.message})`);
+      const resp = await fetch(data.pdfUrl);
+      eq(resp.status, 200, 'download status');
+      const buf = new Uint8Array(await resp.arrayBuffer());
+      assert(buf[0] === 0x25 && buf[1] === 0x50 && buf[2] === 0x44 && buf[3] === 0x46, '%PDF magic');
+      assert(Buffer.from(buf).toString('latin1').includes('/Subtype /Image'), 'PDF embeds gallery image');
+    });
+
     await test('exportShopPdf (PDF_NATIVE=on) → ได้ PDF จริง + Sarabun', async () => {
       const { data } = await rpc('exportShopPdf', {
-        token: ownerToken,
+        token: otherToken,
         backendId: guestBackendId,
       });
       eq(data.success, true, `success (message: ${data && data.message})`);
@@ -583,6 +625,7 @@ async function main() {
       const buf = new Uint8Array(await resp.arrayBuffer());
       assert(buf[0] === 0x25 && buf[1] === 0x50 && buf[2] === 0x44 && buf[3] === 0x46, '%PDF magic');
       assert(buf.length > 3000, 'PDF has real content');
+      assert(Buffer.from(buf).toString('latin1').includes('/Subtype /Image'), 'PDF embeds gallery image');
       assert(
         String(resp.headers.get('content-disposition') || '').includes('.pdf'),
         'filename parity'
@@ -591,7 +634,7 @@ async function main() {
 
     await test('PDF ใช้ข้อมูล Shops row เป็นหลัก ไม่ใช่ legacy (Q6)', async () => {
       const { data } = await rpc('exportShopPdf', {
-        token: ownerToken,
+        token: otherToken,
         backendId: guestBackendId,
       });
       eq(data.success, true, 'success');
@@ -624,7 +667,7 @@ async function main() {
   } else {
     await test('exportShopPdf (gate ปิด) → 501 + ข้อความ parity gate', async () => {
       const { status, data } = await rpc('exportShopPdf', {
-        token: ownerToken,
+        token: otherToken,
         backendId: guestBackendId,
       });
       eq(status, 501, 'status 501');
