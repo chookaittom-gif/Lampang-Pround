@@ -298,6 +298,13 @@
     var unEl = document.getElementById('login-username');
     if (pwEl) pwEl.addEventListener('keypress', function(e){ if(e.key==='Enter') doLogin(); });
     if (unEl) unEl.addEventListener('keypress', function(e){ if(e.key==='Enter'){ var p=document.getElementById('login-password'); if(p) p.focus(); } });
+    document.addEventListener('keydown', function(e) {
+      if (e.key !== 'Escape') return;
+      var overlay = document.getElementById('login-overlay');
+      if (!overlay || overlay.classList.contains('hidden')) return;
+      e.preventDefault();
+      hideLogin();
+    });
   }
 
   function isAuthenticated() {

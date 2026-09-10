@@ -2,6 +2,38 @@ import type { Env } from '../env';
 
 export type Json = Record<string, unknown>;
 
+// ponytail: keep the existing inline handlers and external browser assets; tighten this allowlist only after refactoring them.
+const SECURITY_HEADERS: Record<string, string> = {
+  'strict-transport-security': 'max-age=31536000',
+  'x-content-type-options': 'nosniff',
+  'x-frame-options': 'SAMEORIGIN',
+  'referrer-policy': 'strict-origin-when-cross-origin',
+  'permissions-policy': 'geolocation=(self), microphone=(), camera=()',
+  'content-security-policy': [
+    "default-src 'self'",
+    "base-uri 'self'",
+    "object-src 'none'",
+    "frame-ancestors 'self'",
+    "form-action 'self'",
+    "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src 'self' https://fonts.gstatic.com data:",
+    "img-src 'self' data: blob: https://lh3.googleusercontent.com https://*.googleusercontent.com https://drive.google.com https://quickchart.io",
+    "connect-src 'self' https://quickchart.io",
+    "frame-src 'self' https://maps.google.com https://www.google.com",
+  ].join('; '),
+};
+
+export function withSecurityHeaders(response: Response): Response {
+  const headers = new Headers(response.headers);
+  Object.entries(SECURITY_HEADERS).forEach(([name, value]) => headers.set(name, value));
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
 export function jsonResponse(data: unknown, status = 200, env?: Env): Response {
   const headers: Record<string, string> = { 'content-type': 'application/json; charset=utf-8' };
   if (env) applyCors(headers, env);

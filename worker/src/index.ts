@@ -1,5 +1,5 @@
 import type { Env } from './env';
-import { jsonResponse, preflightResponse } from './lib/http';
+import { jsonResponse, preflightResponse, withSecurityHeaders } from './lib/http';
 import { handleLogin, handleLogout, handleRegister } from './routes/auth';
 import {
   handleSaveRecord,
@@ -106,25 +106,25 @@ export default {
     const url = new URL(request.url);
     if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/images/')) {
       try {
-        return await handleApi(request, env);
+        return withSecurityHeaders(await handleApi(request, env));
       } catch (err) {
-        return jsonResponse(
+        return withSecurityHeaders(jsonResponse(
           {
             success: false,
             message: `เกิดข้อผิดพลาด: ${err instanceof Error ? err.message : String(err)}`,
           },
           500,
           env
-        );
+        ));
       }
     }
     if (request.method === 'GET' && url.pathname === '/favicon.ico' && env.STATIC) {
-      return env.STATIC.fetch(new Request(new URL('/favicon.svg', request.url), request));
+      return withSecurityHeaders(await env.STATIC.fetch(new Request(new URL('/favicon.svg', request.url), request)));
     }
     // หน้าเว็บ static (frontend build) — Workers Static Assets
-    if (env.STATIC) return env.STATIC.fetch(request);
-    return new Response('Frontend not deployed. Run: npm run build -w frontend', {
+    if (env.STATIC) return withSecurityHeaders(await env.STATIC.fetch(request));
+    return withSecurityHeaders(new Response('Frontend not deployed. Run: npm run build -w frontend', {
       status: 404,
-    });
+    }));
   },
 };

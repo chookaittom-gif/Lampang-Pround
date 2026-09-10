@@ -154,6 +154,32 @@ async function main() {
     assert(String(legacyResp.headers.get('content-type') || '').includes('image/svg+xml'), 'legacy svg content-type');
   });
 
+  await test('Security headers → static + API', async () => {
+    const [root, config] = await Promise.all([
+      fetch(`${BASE}/`),
+      fetch(`${BASE}/api/config`),
+    ]);
+    eq(root.status, 200, 'root status');
+    eq(config.status, 200, 'config status');
+    const expected = {
+      'strict-transport-security': 'max-age=31536000',
+      'x-content-type-options': 'nosniff',
+      'x-frame-options': 'SAMEORIGIN',
+      'referrer-policy': 'strict-origin-when-cross-origin',
+      'permissions-policy': 'geolocation=(self), microphone=(), camera=()',
+    };
+    for (const response of [root, config]) {
+      for (const [name, value] of Object.entries(expected)) {
+        eq(response.headers.get(name), value, name);
+      }
+      const csp = String(response.headers.get('content-security-policy') || '');
+      assert(csp.includes("default-src 'self'"), 'content-security-policy default-src');
+      assert(csp.includes('https://cdn.jsdelivr.net'), 'content-security-policy chart.js');
+      assert(csp.includes('https://lh3.googleusercontent.com'), 'content-security-policy Drive images');
+      assert(csp.includes('https://maps.google.com'), 'content-security-policy Maps');
+    }
+  });
+
   await test('Unknown RPC → 404', async () => {
     const { status, data } = await rpc('noSuchFunction', {});
     eq(status, 404, 'status');
