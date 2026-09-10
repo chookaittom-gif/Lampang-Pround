@@ -560,6 +560,20 @@ async function main() {
     assert(buf[0] === 0x50 && buf[1] === 0x4b, 'PK magic');
   });
 
+  await test('exportCleanExcelFile 300 IDs → batching avoids SQLite variable limit', async () => {
+    const recordIds = [
+      guestBackendId,
+      ...Array.from({ length: 299 }, (_, index) => `SMOKE-NOT-FOUND-${runId}-${index}`),
+    ];
+    const { data } = await rpc('exportCleanExcelFile', { recordIds });
+    eq(data.success, true, 'success');
+    eq(data.count, 1, 'count');
+    const resp = await fetch(data.url);
+    eq(resp.status, 200, 'download status');
+    const buf = new Uint8Array(await resp.arrayBuffer());
+    assert(buf[0] === 0x50 && buf[1] === 0x4b, 'PK magic');
+  });
+
   await test('exportCleanExcelFile user → ห้าม export รายการของผู้อื่น', async () => {
     const { data } = await rpc('exportCleanExcelFile', {
       token: ownerToken,

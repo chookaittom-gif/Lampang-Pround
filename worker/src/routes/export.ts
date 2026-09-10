@@ -120,6 +120,7 @@ const EXCEL_HEADERS = [
   'ราคาเฉลี่ย',
   'ช่องทางจำหน่าย',
 ];
+const EXCEL_ID_BATCH_SIZE = 90;
 
 interface ExportRow {
   business_name: string;
@@ -132,6 +133,8 @@ interface ExportRow {
   avg_price: string;
   sales_channel: string;
 }
+
+type ExportQueryRow = ExportRow & { __rowid: number };
 
 function buildContactCell(row: ExportRow): string {
   // คัดลอกจาก exportCleanExcelFile: Line:/FB:/Web: บรรทัดละช่อง หรือ '-'
@@ -158,15 +161,22 @@ async function buildExcelWorkbook(
 
   let rows: ExportRow[];
   if (recordIds.length) {
-    const placeholders = recordIds.map(() => '?').join(', ');
-    rows = await env.DB.prepare(
-      `SELECT business_name, owner_name, phone, line_id, facebook, website,
-       location_text, avg_price, sales_channel FROM legacy_records
-       WHERE UPPER(TRIM(is_deleted)) != 'TRUE' AND backend_id IN (${placeholders})${ownershipClause} ORDER BY rowid`
-    )
-      .bind(...recordIds, ...ownershipParam)
-      .all<ExportRow>()
-      .then((r) => r.results);
+    const queryRows: ExportQueryRow[] = [];
+    for (let start = 0; start < recordIds.length; start += EXCEL_ID_BATCH_SIZE) {
+      const batchIds = recordIds.slice(start, start + EXCEL_ID_BATCH_SIZE);
+      const placeholders = batchIds.map(() => '?').join(', ');
+      const batchRows = await env.DB.prepare(
+        `SELECT rowid AS __rowid, business_name, owner_name, phone, line_id, facebook, website,
+         location_text, avg_price, sales_channel FROM legacy_records
+         WHERE UPPER(TRIM(is_deleted)) != 'TRUE' AND backend_id IN (${placeholders})${ownershipClause} ORDER BY rowid`
+      )
+        .bind(...batchIds, ...ownershipParam)
+        .all<ExportQueryRow>()
+        .then((r) => r.results);
+      queryRows.push(...batchRows);
+    }
+    queryRows.sort((a, b) => a.__rowid - b.__rowid);
+    rows = queryRows.map(({ __rowid: _rowid, ...row }) => row);
   } else {
     rows = await env.DB.prepare(
       `SELECT business_name, owner_name, phone, line_id, facebook, website,

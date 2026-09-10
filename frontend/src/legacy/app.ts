@@ -4802,6 +4802,11 @@
   window.closeDeleteModal = closeDeleteModal;
   window.confirmDelete = confirmDelete;
   window.exportCSV = exportCSV;
+  window.showLogin = showLogin;
+  window.hideLogin = hideLogin;
+  window.showRegister = showRegister;
+  window.hideRegister = hideRegister;
+  window.doRegister = doRegister;
   window.doLogin = doLogin;
   window.toggleLoginPasswordVisibility = toggleLoginPasswordVisibility;
   window.doLogout = doLogout;

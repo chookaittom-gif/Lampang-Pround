@@ -242,6 +242,30 @@ function truncate(text: string, font: PDFFont, size: number, maxWidth: number): 
   return out + '…';
 }
 
+function wrapText(
+  text: string,
+  font: PDFFont,
+  size: number,
+  maxWidth: number,
+  maxLines = 2
+): string[] {
+  const lines = [''];
+  for (const char of Array.from(text)) {
+    const last = lines.length - 1;
+    const candidate = lines[last] + char;
+    if (!lines[last] || font.widthOfTextAtSize(candidate, size) <= maxWidth) {
+      lines[last] = candidate;
+      continue;
+    }
+    if (lines.length >= maxLines) {
+      lines[last] = truncate(lines[last] + '…', font, size, maxWidth);
+      break;
+    }
+    lines.push(char);
+  }
+  return lines;
+}
+
 export async function exportShopPdfNative(
   env: Env,
   payload: Record<string, unknown>
@@ -289,14 +313,16 @@ export async function exportShopPdfNative(
   };
 
   const drawLabelValueTable = (rows: [string, string][]): void => {
-    const rowH = 20;
+    const rowH = 26;
     for (const [label, value] of rows) {
       ensureSpace(rowH);
       const top = y;
       page.drawRectangle({ x: MARGIN, y: top - rowH, width: LABEL_W, height: rowH, borderColor: TABLE_BORDER, borderWidth: 0.75, color: LABEL_BG });
       page.drawRectangle({ x: MARGIN + LABEL_W, y: top - rowH, width: VALUE_W, height: rowH, borderColor: TABLE_BORDER, borderWidth: 0.75, color: WHITE });
-      text(label, MARGIN + 6, top - rowH + 6, 10.5, bold, TEXT_BODY);
-      text(truncate(value, regular, 10.5, VALUE_W - 10), MARGIN + LABEL_W + 6, top - rowH + 6, 10.5, regular, TEXT_BODY);
+      text(truncate(label, bold, 10.5, LABEL_W - 10), MARGIN + 6, top - 10, 10.5, bold, TEXT_BODY);
+      wrapText(value, regular, 10.5, VALUE_W - 10).forEach((line, index) => {
+        text(line, MARGIN + LABEL_W + 6, top - 10 - index * 11, 10.5, regular, TEXT_BODY);
+      });
       y -= rowH;
     }
   };
@@ -333,18 +359,18 @@ export async function exportShopPdfNative(
   // (ช่องรูปยังไม่วาดในเวอร์ชันนี้ — ข้อมูลรูปอยู่ในหมวด Gallery grid; รอเทียบ parity)
   for (let start = 0; start < data.products.length; start += 6) {
     if (start > 0) newPage();
-    drawSectionHeading('สรุปรายการสินค้า');
-    ensureSpace(24 * 7);
     const cols = PRODUCT_COL_WIDTHS;
     const total = cols.reduce((a, b) => a + b, 0);
     const startX = MARGIN + (CONTENT_W - total) / 2;
-    const rowH = 24;
+    const rowH = 28;
+    ensureSpace(22 + rowH * 7);
+    drawSectionHeading('สรุปรายการสินค้า');
     const headerRow = ['ลำดับ', 'รูปภาพ', 'ชื่อสินค้า', 'หมวดหมู่', 'รายละเอียด', 'ราคา'];
     let x = startX;
     let rowTop = y;
     for (let i = 0; i < cols.length; i++) {
       page.drawRectangle({ x, y: rowTop - rowH, width: cols[i], height: rowH, borderColor: TABLE_BORDER, borderWidth: 0.75, color: TABLE_HEADER_BG });
-      text(headerRow[i], x + 4, rowTop - rowH + 7, 10.5, bold, TEXT_BODY);
+      text(headerRow[i], x + 4, rowTop - 18, 10.5, bold, TEXT_BODY);
       x += cols[i];
     }
     y -= rowH;
@@ -355,7 +381,9 @@ export async function exportShopPdfNative(
       for (let i = 0; i < cols.length; i++) {
         page.drawRectangle({ x, y: rowTop - rowH, width: cols[i], height: rowH, borderColor: TABLE_BORDER, borderWidth: 0.75, color: WHITE });
         if (i !== 1) {
-          text(truncate(cells[i], regular, 10.5, cols[i] - 8), x + 4, rowTop - rowH + 7, 10.5, regular, TEXT_BODY);
+          wrapText(cells[i], regular, 10.5, cols[i] - 8).forEach((line, lineIndex) => {
+            text(line, x + 4, rowTop - 10 - lineIndex * 11, 10.5, regular, TEXT_BODY);
+          });
         }
         x += cols[i];
       }
@@ -365,35 +393,37 @@ export async function exportShopPdfNative(
 
   // ── Gallery grid ('รูปสินค้า/ผลิตภัณฑ์' เท่านั้น — renderGallerySectionsForPdf_) ──
   const productGallery = data.gallery.filter((g) => g.ImageRole === 'product' || g.ImageRole === 'gallery');
-  ensureSpace(40);
-  drawSectionHeading('รูปสินค้า/ผลิตภัณฑ์');
   if (productGallery.length === 0) {
     // คัดลอกพฤติกรรม insert/append renderer: หมวดว่าง → 'ไม่มีรูปข้อมูล'
+    drawSectionHeading('รูปสินค้า/ผลิตภัณฑ์');
     text(EMPTY_SECTION, MARGIN, y - 12, 10.5, regular, TEXT_CAPTION);
     y -= 22;
   } else {
-    newPage();
-    drawSectionHeading('รูปสินค้า/ผลิตภัณฑ์');
     const config = galleryGridConfig(productGallery.length);
     const gap = 16;
     const cellSize = Math.min(IMAGE_CELL_SIZE, (CONTENT_W - gap * (config.cols - 1)) / config.cols);
     const captionH = 18;
+    const galleryRowH = cellSize + captionH + 8;
+    const drawGalleryHeading = (continuation = false): void => {
+      text(continuation ? 'รูปสินค้า/ผลิตภัณฑ์ (ต่อ)' : 'รูปสินค้า/ผลิตภัณฑ์', MARGIN, y - 14, 13.5, bold, TEXT_DARK);
+      y -= 22;
+    };
+
+    ensureSpace(22 + galleryRowH);
+    drawGalleryHeading();
     let index = 0;
-    let continuation = false;
     while (index < productGallery.length) {
-      const pageItems = productGallery.slice(index, index + config.rows * config.cols);
-      if (continuation) {
+      if (index > 0 && y - galleryRowH < MARGIN) {
         newPage();
-        text('รูปสินค้า/ผลิตภัณฑ์ (ต่อ)', MARGIN, y - 14, 13.5, bold, TEXT_DARK);
-        y -= 22;
+        ensureSpace(22 + galleryRowH);
+        drawGalleryHeading(true);
       }
-      continuation = true;
-      let col = 0;
-      let row = 0;
-      const rowsUsed = Math.ceil(pageItems.length / config.cols);
-      for (const item of pageItems) {
+      const rowItems = productGallery.slice(index, index + config.cols);
+      const rowTop = y;
+      for (let col = 0; col < rowItems.length; col++) {
+        const item = rowItems[col];
         const cellX = MARGIN + col * (cellSize + gap);
-        const cellTop = y - row * (cellSize + captionH + 8);
+        const cellTop = rowTop;
         const image = await embedImage(env, pdf, item.Url);
         if (image) {
           const scale = Math.min(cellSize / image.width, cellSize / image.height);
@@ -408,16 +438,11 @@ export async function exportShopPdfNative(
         } else {
           text(NO_IMAGE, cellX + 4, cellTop - cellSize / 2, 10, regular, TEXT_CAPTION);
         }
-        const caption = galleryCaption(item, data.products, index);
+        const caption = galleryCaption(item, data.products, index + col);
         text(truncate(caption, regular, 10, cellSize), cellX, cellTop - cellSize - captionH + 8, 10, regular, TEXT_CAPTION);
-        col++;
-        if (col >= config.cols) {
-          col = 0;
-          row++;
-        }
-        index++;
       }
-      y -= rowsUsed * (cellSize + captionH + 8);
+      y -= galleryRowH;
+      index += rowItems.length;
     }
   }
 
