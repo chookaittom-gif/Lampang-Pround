@@ -11,7 +11,7 @@ compatibility_flags = ["nodejs_compat"]
 
 # ฝังฟอนต์ Sarabun เป็น ArrayBuffer สำหรับ pdf-lib
 rules = [
-  { type = "Data", globs = ["**/*.ttf"] }
+  { type = "Data", globs = ["**/*.ttf"], fallthrough = false }
 ]
 
 [vars]
