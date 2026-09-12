@@ -246,6 +246,23 @@ async function main() {
     eq(found.BusinessName, 'ร้านทดสอบ A', 'list field parity');
   });
 
+  await test('saveRecord สินค้ามีรูป → gallery ผูก ProductID ตรงตัว (แถวสินค้าดึงรูปตัวเอง)', async () => {
+    const payload = recordData('IMG');
+    payload.products = [
+      { productName: 'สินค้ามีรูป', productCategory: 'ทดสอบ', price: '99', unit: 'ชิ้น', image: `data:image/jpeg;base64,${TINY_JPEG_B64}` },
+      { productName: 'สินค้าไม่มีรูป', productCategory: 'ทดสอบ', price: '10', unit: 'ชิ้น' },
+    ];
+    const { data } = await rpc('saveRecord', { token: ownerToken, data: payload });
+    eq(data.success, true, 'success');
+    const detail = await rpc('getRecordDetail', { backendId: data.backendId });
+    eq(detail.data.success, true, 'detail success');
+    const prods = detail.data.record.products;
+    eq(prods.length, 2, 'products.length=2');
+    const galProduct = detail.data.record.gallery.filter((g) => g.ImageRole === 'product');
+    eq(galProduct.length, 1, 'gallery product rows=1 (เฉพาะสินค้าที่มีรูป)');
+    eq(galProduct[0].ProductID, prods[0].ProductID, 'gallery ผูก ProductID ของสินค้าตัวแรกแบบ exact');
+  });
+
   await test('updateRecord โดยผู้อื่น → ไม่มีสิทธิ์', async () => {
     const { data: login } = await rpc('loginUser', { username: OTHER, password: 'pass1234' });
     otherToken = login.token;

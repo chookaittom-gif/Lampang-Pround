@@ -69,7 +69,7 @@ export async function replaceProductsByShopId(
   shopId: string,
   products: unknown,
   userName: string
-): Promise<{ success: boolean; message?: string }> {
+): Promise<{ success: boolean; message?: string; productIds?: string[] }> {
   const normalized = normalizeProductItems(products);
   const now = new Date().toISOString();
   const ids: string[] = [];
@@ -104,7 +104,7 @@ export async function replaceProductsByShopId(
   if (results.some((r) => !r.success)) {
     return { success: false, message: 'ไม่สามารถบันทึกรายการสินค้าได้' };
   }
-  return { success: true };
+  return { success: true, productIds: ids };
 }
 
 /** คัดลอกพฤติกรรม syncProductGalleryFromItems_ (บรรทัด 1551–1625):
@@ -116,10 +116,16 @@ async function syncProductGalleryFromItems(
   products: unknown,
   session: Session | null,
   _guestAccessKey: string,
-  origin: string
+  origin: string,
+  // productIds: PROD- id เรียงตามลำดับเดียวกับ normalizeProductItems(products)
+  // ใส่เพื่อผูก gallery row กับสินค้า (แถวสินค้าจะได้ดึงรูปของตัวเองแบบ exact
+  // ไม่ต้องเดาด้วย SortOrder) — ไม่ส่ง = เก็บ product_id ว่างเหมือนเดิม
+  productIds: string[] = []
 ): Promise<{ success: boolean; message?: string }> {
   const userName = currentUserName(session);
-  const items = Array.isArray(products) ? (products as Record<string, unknown>[]) : [];
+  // normalize ครั้งเดียวให้ตรงกับ replaceProductsByShopId (input เดียวกัน → ลำดับเดียวกัน
+  // productIds จึง map ตรง index; โมดัลสินค้าบังคับกรอกชื่ออยู่แล้ว ไม่มี image-only item)
+  const items = normalizeProductItems(products);
   // รวบรวมรูปที่ต้องอัปโหลดก่อนแตะฐานข้อมูล
   const uploads: {
     bytes?: Uint8Array;
@@ -128,16 +134,14 @@ async function syncProductGalleryFromItems(
     displayName: string;
     driveFileId?: string;
     idempotencyKey?: string;
+    productIndex: number;
   }[] = [];
   for (let p = 0; p < items.length; p++) {
-    const item = items[p] || {};
-    const imageValue = String(item.image ?? item.Image ?? '').trim();
+    const item = items[p];
+    const imageValue = String(item.image ?? '').trim();
     if (!imageValue) continue;
-    const sortOrder =
-      item.sortOrder !== null && item.sortOrder !== undefined
-        ? Number(item.sortOrder)
-        : p + 1;
-    const displayName = String(item.productName ?? item.ProductName ?? '').trim() || `product-${sortOrder}`;
+    const sortOrder = item.sortOrder;
+    const displayName = item.productName || `product-${sortOrder}`;
     if (imageValue.startsWith('data:image/')) {
       uploads.push({
         bytes: decodeBase64Payload(imageValue),
@@ -145,12 +149,13 @@ async function syncProductGalleryFromItems(
         sortOrder,
         displayName,
         idempotencyKey: `product|${shopId}|${p}|${displayName}`,
+        productIndex: p,
       });
       continue;
     }
     const driveFileId = extractDriveFileIdFromUrl(imageValue);
     if (!driveFileId) continue;
-    uploads.push({ fileName: displayName, sortOrder, displayName, driveFileId });
+    uploads.push({ fileName: displayName, sortOrder, displayName, driveFileId, productIndex: p });
   }
 
   const now = new Date().toISOString();
@@ -210,10 +215,11 @@ async function syncProductGalleryFromItems(
         `INSERT INTO shop_gallery (gallery_id, shop_id, product_id, image_role,
          display_name, drive_file_id, drive_url, thumbnail_url, mime_type, file_size,
          width, height, sort_order, status, created_at, created_by, updated_at, updated_by)
-         VALUES (?, ?, '', 'product', ?, ?, ?, ?, ?, ?, '', '', ?, 'ACTIVE', ?, ?, ?, ?)`
+         VALUES (?, ?, ?, 'product', ?, ?, ?, ?, ?, ?, '', '', ?, 'ACTIVE', ?, ?, ?, ?)`
       ).bind(
         galleryId,
         shopId,
+        productIds[upload.productIndex] ?? '',
         upload.displayName || `product-${upload.sortOrder}`,
         driveFileId,
         driveUrl,
@@ -319,12 +325,15 @@ export async function handleSaveRecord(request: Request, env: Env): Promise<Resp
     );
 
     const statements = [insertRecord];
+    // PROD- id ตามลำดับ normalized — ใช้ผูก gallery row กับสินค้าตอน sync รูป
+    let savedProductIds: string[] = [];
     if (hasProducts) {
       const normalized = normalizeProductItems(dataObj.products);
       const ids: string[] = [];
       for (let i = 0; i < normalized.length; i++) {
         ids.push(await nextSequenceId(env.DB, 'PROD', 'PROD-'));
       }
+      savedProductIds = ids;
       normalized.forEach((item, i) => {
         statements.push(
           env.DB.prepare(
@@ -351,6 +360,28 @@ export async function handleSaveRecord(request: Request, env: Env): Promise<Resp
     }
     const results = await env.DB.batch(statements);
     if (results.some((r) => !r.success)) throw new Error('insert failed');
+
+    // sync รูปสินค้าลง gallery ตั้งแต่ตอนสร้าง (เดิมทำเฉพาะ update → รูปที่แนบตอนสร้างหาย)
+    // ผูก product_id ให้แถวสินค้าดึงรูปของตัวเองแบบ exact
+    if (hasProducts) {
+      const origin = new URL(request.url).origin;
+      const gallerySync = await syncProductGalleryFromItems(
+        env,
+        backendId,
+        dataObj.products,
+        session,
+        '',
+        origin,
+        savedProductIds
+      );
+      if (gallerySync.success === false) {
+        return jsonResponse(
+          { success: false, message: gallerySync.message || 'ไม่สามารถบันทึกรูปสินค้าได้' },
+          200,
+          env
+        );
+      }
+    }
 
     const result: Record<string, unknown> = {
       success: true,
@@ -572,7 +603,8 @@ export async function handleUpdateRecord(request: Request, env: Env): Promise<Re
         dataObj.products,
         session,
         guestAccessKey,
-        origin
+        origin,
+        productSync.productIds ?? []
       );
       if (gallerySync.success === false) {
         return jsonResponse(
