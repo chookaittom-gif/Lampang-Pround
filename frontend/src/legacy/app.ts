@@ -3422,6 +3422,18 @@
     return lower === 'product' || lower === 'shop' || lower === 'activity' || lower === 'gallery';
   }
 
+  // รูปปกประจำสินค้า = แถว role product/gallery ที่ผูก ProductID ตรงกับสินค้าที่มีอยู่จริง
+  // (แถวสินค้าโชว์รูปนี้แล้ว อัลบั้มจึงไม่ต้องโชว์ซ้ำ — แถวเก่าที่ product_id ว่างยังอยู่ในอัลบั้มเหมือนเดิม)
+  function isProductCoverImage_(g, products) {
+    if (!isGalleryRoleProductLike_(g)) return false;
+    var gid = String(g && g.ProductID || '').trim();
+    if (isUnlinkedGalleryProductId_(gid)) return false;
+    if (!Array.isArray(products)) return false;
+    return products.some(function(p) {
+      return String((p && (p.ProductID || p.product_id)) || '').trim() === gid;
+    });
+  }
+
   function findProductGalleryImageUrl(product, gallery, productIndexInShopProducts, sizeKey) {
     if (!product || !Array.isArray(gallery)) return '';
     var sk = sizeKey || 'full';
@@ -3762,10 +3774,11 @@
       + '</div>';
   }
 
-  function renderGalleryPhotos(gallery) {
+  function renderGalleryPhotos(gallery, products) {
     var items = Array.isArray(gallery) ? gallery.slice() : [];
     var shopImgs     = items.filter(function(g){ return String(g.ImageRole||'').trim().toLowerCase() === 'shop'; }).slice(0, 3);
-    var productImgs  = items.filter(isGalleryRoleProductLike_);
+    // อัลบั้มไม่รวมรูปปกประจำสินค้า (แถวสินค้าโชว์รูปของตัวเองอยู่แล้ว)
+    var productImgs  = items.filter(function(g){ return isGalleryRoleProductLike_(g) && !isProductCoverImage_(g, products); });
     var activityImgs = items.filter(function(g){ return String(g.ImageRole||'').trim().toLowerCase() === 'activity'; }).slice(0, 3);
 
     function renderRolePhotoBlock(container, title, accent, roleItems) {
@@ -3791,8 +3804,13 @@
     var productCont  = document.getElementById('detail-photo-product-container');
     var productBadge = document.getElementById('detail-photo-product-badge');
     if (productBadge) productBadge.textContent = 'Album (' + productImgs.length + ')';
-    if (productCont && productImgs.length > 0) {
-      productCont.innerHTML = '<div class="grid grid-cols-2 sm:grid-cols-3 gap-2">' + productImgs.map(buildGalleryAlbumCard).join('') + '</div>';
+    if (productCont) {
+      if (productImgs.length > 0) {
+        productCont.innerHTML = '<div class="grid grid-cols-2 sm:grid-cols-3 gap-2">' + productImgs.map(buildGalleryAlbumCard).join('') + '</div>';
+      } else {
+        // ไม่มีรูปแกลเลอรีแยก (มีแต่รูปปกสินค้า) → โชว์ empty state แทนของเก่าค้าง
+        productCont.innerHTML = buildImagePlaceholder('แกลเลอรีสินค้า');
+      }
     }
 
     // Activity photo (1 image) — only override if gallery has an image
@@ -3931,7 +3949,7 @@
     var hasLegacyProductImage = formatDetailValue(item.ImageProduct) !== '-';
     var hasLegacyActivityImage = formatDetailValue(item.ImageActivity) !== '-';
     var shopGalleryCount = galleryItems.filter(function(g) { return String(g.ImageRole || '').trim().toLowerCase() === 'shop'; }).length || (hasLegacyShopImage ? 1 : 0);
-    var productGalleryCount = galleryItems.filter(isGalleryRoleProductLike_).length || (hasLegacyProductImage ? 1 : 0);
+    var productGalleryCount = galleryItems.filter(function(g) { return isGalleryRoleProductLike_(g) && !isProductCoverImage_(g, _pdProducts); }).length || (hasLegacyProductImage ? 1 : 0);
     var activityGalleryCount = galleryItems.filter(function(g) { return String(g.ImageRole || '').trim().toLowerCase() === 'activity'; }).length || (hasLegacyActivityImage ? 1 : 0);
     const body = document.getElementById('detail-body');
     
@@ -4224,7 +4242,7 @@
       _pdShopItem = record || _pdShopItem;
       _pdProducts = Array.isArray(record.products) ? record.products : [];
       if (Array.isArray(record.gallery) && record.gallery.length > 0) {
-        renderGalleryPhotos(record.gallery);
+        renderGalleryPhotos(record.gallery, record.products);
       }
       var prodSection = document.getElementById('detail-products-section');
       if (prodSection) {
