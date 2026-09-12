@@ -15,6 +15,8 @@ const LABEL_W = 180;
 const VALUE_W = 343;
 const PRODUCT_COL_WIDTHS = [34, 108, 116, 78, 62, 125];
 const IMAGE_CELL_SIZE = 180;
+/** ระยะเว้น 1 บรรทัดระหว่างหัวข้อหมวดรูปกับรูปภาพ */
+const HEADING_IMAGE_GAP = 12;
 const TABLE_BORDER = rgb(0xb4 / 255, 0xc2 / 255, 0xd2 / 255);
 const TABLE_HEADER_BG = rgb(0xdb / 255, 0xea / 255, 0xfe / 255);
 const LABEL_BG = rgb(0xf8 / 255, 0xfa / 255, 0xfc / 255);
@@ -419,18 +421,19 @@ export async function exportShopPdfNative(
     let cellSize: number;
     if (productGallery.length === 1) {
       cellSize = Math.min(340, (CONTENT_W - gap * (config.cols - 1)) / config.cols);
-      cellSize = Math.max(cellSize, fitSingle(22));
+      cellSize = Math.max(cellSize, fitSingle(22 + HEADING_IMAGE_GAP));
     } else {
       cellSize = Math.min(IMAGE_CELL_SIZE, (CONTENT_W - gap * (config.cols - 1)) / config.cols);
     }
     // ที่เหลือไม่พอแถวแรก → ขึ้นหน้าใหม่ก่อนวาดหัวข้อ แล้วขยายรูปเดี่ยวใหม่
-    if (y - 22 - (cellSize + captionH + 8) < MARGIN) {
+    if (y - 22 - HEADING_IMAGE_GAP - (cellSize + captionH + 8) < MARGIN) {
       newPage();
       if (productGallery.length === 1) {
-        cellSize = Math.max(cellSize, fitSingle(22));
+        cellSize = Math.max(cellSize, fitSingle(22 + HEADING_IMAGE_GAP));
       }
     }
     drawSectionHeading('รูปสินค้า/ผลิตภัณฑ์');
+    y -= HEADING_IMAGE_GAP; // เว้น 1 บรรทัดระหว่างหัวข้อกับรูป
     let index = 0;
     let continuation = false;
     while (index < productGallery.length) {
@@ -438,7 +441,7 @@ export async function exportShopPdfNative(
       if (continuation) {
         newPage();
         text('รูปสินค้า/ผลิตภัณฑ์ (ต่อ)', MARGIN, y - 14, 13.5, bold, TEXT_DARK);
-        y -= 22;
+        y -= 22 + HEADING_IMAGE_GAP;
       }
       continuation = true;
       let col = 0;
@@ -462,7 +465,11 @@ export async function exportShopPdfNative(
           text(NO_IMAGE, cellX + 4, cellTop - cellSize / 2, 10, regular, TEXT_CAPTION);
         }
         const caption = galleryCaption(item, data.products, index);
-        text(truncate(caption, regular, 10, cellSize), cellX, cellTop - cellSize - captionH + 8, 10, regular, TEXT_CAPTION);
+        // คำบรรยายใต้รูปจัดกึ่งกลาง
+        const capSize = 10;
+        const capText = truncate(caption, regular, capSize, cellSize);
+        const capW = regular.widthOfTextAtSize(capText, capSize);
+        text(capText, cellX + Math.max(0, (cellSize - capW) / 2), cellTop - cellSize - captionH + 8, capSize, regular, TEXT_CAPTION);
         col++;
         if (col >= config.cols) {
           col = 0;
