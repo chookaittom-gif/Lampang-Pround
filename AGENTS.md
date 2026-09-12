@@ -39,3 +39,18 @@ re-read whole files.
 After big code changes, refresh the graph with `graft build` (deterministic,
 no API key, $0).
 <!-- graft:end -->
+
+<!-- design-context:start -->
+## Design Context
+
+- Visual system: `DESIGN.md` (token ใน YAML frontmatter เป็น normative) +
+  `.impeccable/design.json` (sidecar: shadows, motion, breakpoints, component snippets)
+- Strategy: `PRODUCT.md` — register `product`, บุคลิก สดใส เป็นมิตร ท้องถิ่น,
+  North Star "The Provincial Market Stall"
+- กฎแกน: ฟอนต์ Prompt ครอบครัวเดียว (300-700) · ฟ้า Lampang Sky `#2563eb`
+  ใช้กับแอคชัน/สถานะเลือกเท่านั้น (≤10% ต่อจอ) · แบ่งหมวดด้วยพื้น tint อ่อน
+  ห้ามแถบสีข้างการ์ด · ปุ่ม/ชิป pill, การ์ดมุน 12-16px · เงาจางแบบกระดาษซ้อน
+  ยกขึ้นเฉพาะตอนตอบสนองสถานะ · touch target ≥44px, ไม่มี horizontal overflow บนมือถือ
+- ก่อนแก้ UI ใด ๆ: อ่าน Do's and Don'ts ใน `DESIGN.md` (พก anti-references
+  จาก PRODUCT.md มาแบบคำต่อคำ)
+<!-- design-context:end -->

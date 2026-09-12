@@ -19,6 +19,21 @@ const IMAGE_CELL_SIZE = 180;
 const HEADING_IMAGE_GAP = 12;
 /** ระยะเว้นระหว่างตารางสินค้ากับหมวดรูปสินค้า (ตอนอยู่หน้าเดียวกัน) */
 const GALLERY_SECTION_GAP = 14;
+// ── Layout tokens กลางไฟล์ (ห้าม hardcode ตัวเลขซ้ำใน logic ด้านล่าง) ──
+/** ความสูงแถวตารางสินค้า (จุรูป + ข้อความ 2 บรรทัด) */
+const PRODUCT_ROW_H = 56;
+/** ความสูงแถวหัวตารางสินค้า */
+const PRODUCT_HEADER_H = 24;
+/** จำนวนแถวสินค้าสูงสุดต่อหน้า */
+const PRODUCT_ROWS_PER_PAGE = 6;
+/** ช่องว่างระหว่างรูปในกริดแกลเลอรี */
+const GALLERY_GAP = 16;
+/** ความสูงบรรทัดคำบรรยายใต้รูป */
+const GALLERY_CAPTION_H = 18;
+/** พื้นที่ขั้นต่ำก่อนหัวข้อหมวดรูป (กันหัวข้อชิดขอบล่างหน้า) */
+const GALLERY_HEAD_RESERVE = 40;
+/** ฟอนต์ข้อความในเซลตารางสินค้า */
+const TABLE_CELL_FONT_SIZE = 10.5;
 const TABLE_BORDER = rgb(0xb4 / 255, 0xc2 / 255, 0xd2 / 255);
 const TABLE_HEADER_BG = rgb(0xdb / 255, 0xea / 255, 0xfe / 255);
 const LABEL_BG = rgb(0xf8 / 255, 0xfa / 255, 0xfc / 255);
@@ -237,6 +252,31 @@ function galleryGridConfig(count: number): { rows: number; cols: number } {
   return { rows: 3, cols: 3 };
 }
 
+/** ตัดคำขึ้นบรรทัดใหม่แบบรายอักขระ (ภาษาไทยไม่มีช่องว่างคั่นคำ)
+ *  คืนไม่เกิน maxLines บรรทัด — เกินตัดด้วย … ที่บรรทัดสุดท้าย */
+function wrapLines(value: string, font: PDFFont, size: number, maxWidth: number, maxLines: number): string[] {
+  const rawLines: string[] = [];
+  let current = '';
+  for (const ch of String(value ?? '')) {
+    const trial = current + ch;
+    if (current !== '' && font.widthOfTextAtSize(trial, size) > maxWidth) {
+      rawLines.push(current);
+      current = ch;
+    } else {
+      current = trial;
+    }
+  }
+  if (current !== '' || rawLines.length === 0) rawLines.push(current);
+  if (rawLines.length <= maxLines) return rawLines;
+  const out = rawLines.slice(0, maxLines);
+  let last = out[maxLines - 1];
+  while (last.length > 1 && font.widthOfTextAtSize(last + '…', size) > maxWidth) {
+    last = last.slice(0, -1);
+  }
+  out[maxLines - 1] = last + '…';
+  return out;
+}
+
 function truncate(text: string, font: PDFFont, size: number, maxWidth: number): string {
   if (font.widthOfTextAtSize(text, size) <= maxWidth) return text;
   let out = text;
@@ -346,36 +386,43 @@ export async function exportShopPdfNative(
     if (byOrder) return byOrder;
     return looseGallery[globalIndex] ?? null;
   };
-  for (let start = 0; start < data.products.length; start += 6) {
-    // แถวสินค้าสูง 56pt ให้รูปมีขนาดมองเห็นชัด (6 แถว/หน้าเท่าเดิม ยังพอดี 1 หน้า)
-    const rowH = 56;
-    if (start > 0) newPage();
+  for (let start = 0; start < data.products.length; start += PRODUCT_ROWS_PER_PAGE) {
+    // [P1] จองพื้นที่ตามจำนวนแถวจริงของหน้านี้ (ไม่ใช่เหมา 6 แถว) กันหน้าว่างครึ่งหน้า
     // กันหัวข้อค้างท้ายหน้า: เช็คที่ทั้งก้อนก่อนวาดหัวข้อ (ไม่ใช่หลังวาด)
-    else ensureSpace(22 + 24 + rowH * 6 + 8);
+    const rowH = PRODUCT_ROW_H;
+    const headerH = PRODUCT_HEADER_H;
+    if (start > 0) newPage();
+    else {
+      const rowsThisPage = Math.min(data.products.length - start, PRODUCT_ROWS_PER_PAGE);
+      ensureSpace(22 + headerH + rowH * rowsThisPage + 8);
+    }
     drawSectionHeading('สรุปรายการสินค้า');
     const cols = PRODUCT_COL_WIDTHS;
     const total = cols.reduce((a, b) => a + b, 0);
     const startX = MARGIN + (CONTENT_W - total) / 2;
-    const headerH = 24;
     const headerRow = ['ลำดับ', 'รูปภาพ', 'ชื่อสินค้า', 'หมวดหมู่', 'รายละเอียด', 'ราคา'];
     let x = startX;
     let rowTop = y;
     for (let i = 0; i < cols.length; i++) {
       page.drawRectangle({ x, y: rowTop - headerH, width: cols[i], height: headerH, borderColor: TABLE_BORDER, borderWidth: 0.75, color: TABLE_HEADER_BG });
-      text(headerRow[i], x + 4, rowTop - headerH + 7, 10.5, bold, TEXT_BODY);
+      text(headerRow[i], x + 4, rowTop - headerH + 7, TABLE_CELL_FONT_SIZE, bold, TEXT_BODY);
       x += cols[i];
     }
     y -= headerH;
-    const pageItems = data.products.slice(start, start + 6);
+    const pageItems = data.products.slice(start, start + PRODUCT_ROWS_PER_PAGE);
+    // [P2 optimize] ฝังรูปทั้งหน้าพร้อมกัน ไม่รอทีละใบ
+    const thumbs = await Promise.all(
+      pageItems.map(async (item, k) => {
+        const gItem = galleryForProduct(start + k, Number(item.SortOrder ?? 0));
+        return gItem ? embedImage(env, pdf, gItem.Url) : null;
+      })
+    );
     for (let idx = 0; idx < pageItems.length; idx++) {
       const item = pageItems[idx];
       rowTop = y;
       x = startX;
       const cells = [String(start + idx + 1), '', item.ProductName || NOT_SPECIFIED, item.ProductCategory || NOT_SPECIFIED, item.Description || NOT_SPECIFIED, item.Price || NOT_SPECIFIED];
-      // รูปประจำสินค้า (จับคู่ตาม SortOrder; โหลดไม่ได้ → เว้นว่างเหมือนเดิม)
-      let thumb: PDFImage | null = null;
-      const gItem = galleryForProduct(start + idx, Number(item.SortOrder ?? 0));
-      if (gItem) thumb = await embedImage(env, pdf, gItem.Url);
+      const thumb = thumbs[idx];
       for (let i = 0; i < cols.length; i++) {
         page.drawRectangle({ x, y: rowTop - rowH, width: cols[i], height: rowH, borderColor: TABLE_BORDER, borderWidth: 0.75, color: WHITE });
         if (i === 1) {
@@ -391,9 +438,21 @@ export async function exportShopPdfNative(
               width: w,
               height: h,
             });
+          } else {
+            // [P3] สินค้าไม่มีรูป: พิมพ์กำกับจางกลางเซลแทนช่องว่างเปล่า
+            const t = NO_IMAGE;
+            const tw = regular.widthOfTextAtSize(t, 9);
+            text(t, x + (cols[i] - tw) / 2, rowTop - rowH / 2 - 3, 9, regular, TEXT_CAPTION);
           }
         } else {
-          text(truncate(cells[i], regular, 10.5, cols[i] - 8), x + 4, rowTop - rowH / 2 - 3, 10.5, regular, TEXT_BODY);
+          // [P2 typeset] wrap ได้ 2 บรรทัด (ไทยตัดรายอักขระ) เกินค่อยตัดด้วย …
+          const lines = wrapLines(cells[i], regular, TABLE_CELL_FONT_SIZE, cols[i] - 8, 2);
+          if (lines.length === 1) {
+            text(lines[0], x + 4, rowTop - rowH / 2 - 3, TABLE_CELL_FONT_SIZE, regular, TEXT_BODY);
+          } else {
+            text(lines[0], x + 4, rowTop - rowH / 2 + 4, TABLE_CELL_FONT_SIZE, regular, TEXT_BODY);
+            text(lines[1], x + 4, rowTop - rowH / 2 - 10, TABLE_CELL_FONT_SIZE, regular, TEXT_BODY);
+          }
         }
         x += cols[i];
       }
@@ -405,7 +464,7 @@ export async function exportShopPdfNative(
   // เว้นวรรคจากตารางสินค้าก่อน (กรณีต่อหน้าเดียวกันหัวข้อจะได้ไม่ชิดตาราง)
   y -= GALLERY_SECTION_GAP;
   const productGallery = data.gallery.filter((g) => g.ImageRole === 'product' || g.ImageRole === 'gallery');
-  ensureSpace(40);
+  ensureSpace(GALLERY_HEAD_RESERVE);
   if (productGallery.length === 0) {
     // คัดลอกพฤติกรรม insert/append renderer: หมวดว่าง → 'ไม่มีรูปข้อมูล'
     drawSectionHeading('รูปสินค้า/ผลิตภัณฑ์');
@@ -414,8 +473,8 @@ export async function exportShopPdfNative(
   } else {
     // มีรูป → ต่อหน้าเดียวกับตารางสินค้าถ้าที่พอ (ไม่บังคับขึ้นหน้าใหม่)
     const config = galleryGridConfig(productGallery.length);
-    const gap = 16;
-    const captionH = 18;
+    const gap = GALLERY_GAP;
+    const captionH = GALLERY_CAPTION_H;
     // รูปเดี่ยวขยายให้เต็มพื้นที่หน้าที่เหลือ (ไม่เกินความกว้างเนื้อหา)
     // หลายรูปคงขนาดเดิม 180px
     const fitSingle = (upper: number): number => {
@@ -451,17 +510,21 @@ export async function exportShopPdfNative(
       let col = 0;
       let row = 0;
       const rowsUsed = Math.ceil(pageItems.length / config.cols);
-      for (const item of pageItems) {
+      // [P2 optimize] ฝังรูปทั้งหน้าพร้อมกัน ไม่รอทีละใบ
+      const embedded = await Promise.all(pageItems.map((item) => embedImage(env, pdf, item.Url)));
+      for (let k = 0; k < pageItems.length; k++) {
+        const item = pageItems[k];
         const cellX = MARGIN + col * (cellSize + gap);
         const cellTop = y - row * (cellSize + captionH + 8);
-        const image = await embedImage(env, pdf, item.Url);
+        const image = embedded[k];
         if (image) {
           const scale = Math.min(cellSize / image.width, cellSize / image.height);
           const w = image.width * scale;
           const h = image.height * scale;
           page.drawImage(image, {
             x: cellX + (cellSize - w) / 2,
-            y: cellTop - cellSize + (cellSize - h) / 2,
+            // [P1] รูปชิดล่างเซล: ท้องรูปเสมอกันทุกช่อง caption อยู่ระยะคงที่
+            y: cellTop - cellSize,
             width: w,
             height: h,
           });

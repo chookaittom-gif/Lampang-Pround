@@ -1,0 +1,156 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-12T13:30:00Z",
+  "title": "Design System: Lampang Pround",
+  "extensions": {
+    "colorMeta": {
+      "primary": {
+        "role": "primary",
+        "displayName": "Lampang Sky",
+        "canonical": "#2563eb",
+        "tonalRamp": ["#1e3a8a", "#1d4ed8", "#2563eb", "#3b82f6", "#60a5fa", "#93c5fd", "#bfdbfe", "#dbeafe"]
+      },
+      "sky": {
+        "role": "primary",
+        "displayName": "Morning Sky",
+        "canonical": "#0ea5e9",
+        "tonalRamp": ["#0369a1", "#0284c7", "#0ea5e9", "#38bdf8", "#7dd3fc", "#bae6fd", "#e0f2fe", "#f0f9ff"]
+      },
+      "success": {
+        "role": "secondary",
+        "displayName": "Market Green",
+        "canonical": "#10b981",
+        "tonalRamp": ["#065f46", "#047857", "#059669", "#10b981", "#34d399", "#6ee7b7", "#a7f3d0", "#d1fae5"]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "#0f172a",
+        "tonalRamp": ["#0f172a", "#1e293b", "#334155", "#475569", "#64748b", "#94a3b8", "#cbd5e1", "#e2e8f0"]
+      },
+      "surface-tint": {
+        "role": "neutral",
+        "displayName": "Paper Tint",
+        "canonical": "#f8fafc",
+        "tonalRamp": ["#64748b", "#94a3b8", "#cbd5e1", "#e2e8f0", "#eef2f6", "#f1f5f9", "#f8fafc", "#ffffff"]
+      }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "ชื่อร้านและหัวโมดัลรายละเอียด" },
+      "headline": { "displayName": "Headline", "purpose": "หัวหมวดในหน้าและการ์ดสรุป" },
+      "title": { "displayName": "Title", "purpose": "ป้ายการ์ด หัวบล็อก หัวตาราง" },
+      "body": { "displayName": "Body", "purpose": "ข้อความเนื้อหาทั้งหมด ไม่เกิน 75ch" },
+      "label": { "displayName": "Label", "purpose": "ชิป ป้ายสถานะ คำอธิบายฟิลด์" }
+    },
+    "shadows": [
+      { "name": "paper-rest", "value": "0 1px 2px rgba(15, 23, 42, 0.04)", "purpose": "การ์ดและบล็อกตอนพัก" },
+      { "name": "paper-hover", "value": "0 4px 16px rgba(15, 23, 42, 0.08)", "purpose": "การ์ดและชิปตอน hover" },
+      { "name": "cta-glow", "value": "0 4px 14px rgba(14, 165, 233, 0.5)", "purpose": "ปุ่ม gradient ฟ้าตอน hover" },
+      { "name": "modal-lift", "value": "0 25px 50px -12px rgba(15, 23, 42, 0.25)", "purpose": "โมดัลรายละเอียดและ popover" }
+    ],
+    "motion": [
+      { "name": "state-fast", "value": "all 0.15s ease", "purpose": "ชิปและ控件 เล็ก ตอบสนองทันที" },
+      { "name": "state-standard", "value": "all 0.2s ease", "purpose": "ปุ่ม การ์ด ช่องกรอก เปลี่ยนสถานะ" },
+      { "name": "state-slow", "value": "all 0.25s ease", "purpose": "บล็อกใหญ่และแท็บสลับ" },
+      { "name": "reduced-motion", "value": "transition-duration: 0.01ms", "purpose": "ผู้ใช้เปิด reduced motion" }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" },
+      { "name": "xl", "value": "1280px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "ปุ่มแอคชันหลัก pill ฟ้า Lampang Sky",
+      "html": "<button class=\"ds-btn-primary\">บันทึกข้อมูล</button>",
+      "css": ".ds-btn-primary { background: #2563eb; color: #ffffff; font-family: Prompt, sans-serif; font-size: 0.875rem; font-weight: 600; padding: 10px 24px; border: none; border-radius: 9999px; cursor: pointer; transition: background-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease; } .ds-btn-primary:hover { background: #1d4ed8; transform: translateY(-1px); } .ds-btn-primary:focus-visible { outline: none; box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2); } .ds-btn-primary:active { transform: translateY(0); } .ds-btn-primary:disabled { background: #bfdbfe; cursor: not-allowed; }"
+    },
+    {
+      "name": "CTA Gradient Button",
+      "kind": "button",
+      "refersTo": "button-primary-cta",
+      "description": "ปุ่ม CTA gradient ฟ้า ใช้กับแอคชันหลักของจอเดียว",
+      "html": "<button class=\"ds-btn-cta\">ดาวน์โหลด Excel (.xlsx)</button>",
+      "css": ".ds-btn-cta { background: linear-gradient(135deg, #0ea5e9, #2563eb); color: #ffffff; font-family: Prompt, sans-serif; font-size: 0.875rem; font-weight: 600; padding: 12px 24px; border: none; border-radius: 1rem; cursor: pointer; box-shadow: 0 2px 8px rgba(14, 165, 233, 0.35); transition: box-shadow 0.2s ease, transform 0.2s ease; } .ds-btn-cta:hover { box-shadow: 0 4px 14px rgba(14, 165, 233, 0.5); transform: translateY(-1px); } .ds-btn-cta:focus-visible { outline: none; box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2); }"
+    },
+    {
+      "name": "Success Button",
+      "kind": "button",
+      "refersTo": "button-success",
+      "description": "ปุ่มบันทึก/ยืนยันสำเร็จ เขียว Market Green",
+      "html": "<button class=\"ds-btn-success\">ยืนยัน</button>",
+      "css": ".ds-btn-success { background: linear-gradient(135deg, #10b981, #059669); color: #ffffff; font-family: Prompt, sans-serif; font-size: 0.875rem; font-weight: 600; padding: 12px 24px; border: none; border-radius: 1rem; cursor: pointer; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4); transition: box-shadow 0.2s ease, transform 0.2s ease; } .ds-btn-success:hover { transform: translateY(-1px); } .ds-btn-success:focus-visible { outline: none; box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.25); }"
+    },
+    {
+      "name": "Category Chip",
+      "kind": "chip",
+      "refersTo": "chip",
+      "description": "ชิปหมวดหมู่/สถานะ pill พื้น tint ฟ้า",
+      "html": "<span class=\"ds-chip\">เครื่องดื่ม</span>",
+      "css": ".ds-chip { display: inline-block; background: #eff6ff; color: #1d4ed8; font-family: Prompt, sans-serif; font-size: 0.75rem; font-weight: 500; padding: 4px 12px; border-radius: 9999px; transition: background-color 0.15s ease; } .ds-chip:hover { background: #dbeafe; }"
+    },
+    {
+      "name": "Info Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "การ์ดข้อมูลร้าน มน 1rem เงากระดาษตอนพัก",
+      "html": "<div class=\"ds-card\"><h3 class=\"ds-card-title\">กลุ่มวิสาหกิจชุมชนรักลานไม้ไผ่</h3><p class=\"ds-card-body\">นางคำสุ่ม จริยาก · 0817831170</p></div>",
+      "css": ".ds-card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 1rem; padding: 16px; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04); transition: box-shadow 0.2s ease, transform 0.2s ease; } .ds-card:hover { box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08); } .ds-card-title { font-family: Prompt, sans-serif; font-size: 1.125rem; font-weight: 700; color: #0f172a; margin: 0 0 4px; } .ds-card-body { font-family: Prompt, sans-serif; font-size: 0.875rem; color: #334155; margin: 0; }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "ช่องกรอกข้อความ มน 0.75rem วงแหวนฟ้าตอนโฟกัส",
+      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"ค้นหาชื่อร้าน, เจ้าของ, หรือเบอร์โทร\" />",
+      "css": ".ds-input { background: #ffffff; color: #0f172a; font-family: Prompt, sans-serif; font-size: 0.875rem; padding: 10px 14px; border: 1px solid #e2e8f0; border-radius: 0.75rem; transition: border-color 0.2s ease, box-shadow 0.2s ease; } .ds-input::placeholder { color: #64748b; } .ds-input:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2); }"
+    },
+    {
+      "name": "Nav Tab Pill",
+      "kind": "nav",
+      "refersTo": "chip",
+      "description": "แท็บหลักสามสถานะ pill เลือกแล้วเติมขาว",
+      "html": "<nav class=\"ds-tabs\"><button class=\"ds-tab\">กรอกข้อมูล</button><button class=\"ds-tab ds-tab-active\">รายการ</button><button class=\"ds-tab\">แดชบอร์ด</button></nav>",
+      "css": ".ds-tabs { display: inline-flex; gap: 8px; background: #f1f5f9; padding: 6px; border-radius: 9999px; } .ds-tab { background: transparent; color: #334155; font-family: Prompt, sans-serif; font-size: 0.875rem; font-weight: 500; padding: 8px 20px; border: none; border-radius: 9999px; cursor: pointer; transition: background-color 0.2s ease, color 0.2s ease; } .ds-tab:hover { background: #e2e8f0; } .ds-tab-active { background: #2563eb; color: #ffffff; } .ds-tab:focus-visible { outline: none; box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Provincial Market Stall",
+    "overview": "ระบบนี้คือแผงตลาดท้องถิ่นที่ยกขึ้นจอ: สินค้าและเรื่องราวของผู้ผลิตเรียงเป็นระเบียบให้อ่านง่าย สีสันสดใสแบบผ้าใบตลาดแต่ไม่รกตา ทุกตารางนิ้วต้องตอบคำถามเดียวว่า \"ร้านนี้คือใคร ติดต่ออย่างไร\" ก่อน แล้วค่อยเล่ารายละเอียดที่เหลือ ความสดใสอยู่ในสีพื้นและป้ายสถานะ ไม่ใช่ในการตกแต่งที่แย่งสายตาไปจากข้อมูล\n\nความหนาแน่นข้อมูลสูงโดยเจตนา (รายการ 300+ ร้าน, กราฟ 6 ชุด, แกลเลอรีรูป) แต่จัดชั้นด้วยพื้นสีอ่อนและช่องไฟ ไม่ใช่ด้วยเส้นกรอบหนาหรือการ์ดซ้อนการ์ด มือถือคือจอหลัก: ตัวอักษรอ่านได้จริง ปุ่มแตะได้จริง ไม่มีอะไรล้นจอแนวนอน",
+    "keyCharacteristics": [
+      "ฟอนต์ไทย Prompt ครอบครัวเดียว น้ำหนัก 300-700 พาลำดับชั้นทั้งหมด",
+      "ฟ้าลำปาง (Lampang Sky) เป็นเสียงเดียวของแอคชัน: ปุ่ม ลิงก์ สถานะเลือก",
+      "พื้น tint อ่อนหกตระกูล (ฟ้า/ม่วง/อำพัน/เขียว/กุหลาบ/เทา) แบ่งหมวดข้อมูลโดยไม่ใช้เส้นหนา",
+      "ปุ่มและชิปมนเต็ม (pill) การ์ดมุนนุ่ม 12-16px แตะง่าย 44px ขึ้นไป",
+      "เงาจางระดับกระดาษซ้อน ยกขึ้นเฉพาะตอนตอบสนองสถานะ"
+    ],
+    "rules": [
+      { "name": "The One Sky Rule", "body": "ฟ้า Lampang Sky ใช้กับแอคชันและสถานะเลือกเท่านั้น รวมแล้วไม่เกิน 10% ของจอ ความหายากคือเหตุผลที่มันนำสายตา", "section": "colors" },
+      { "name": "The Tint-Not-Line Rule", "body": "แบ่งหมวดข้อมูลด้วยพื้น tint อ่อน (เช่น #eff6ff, #f5f3ff, #fffbeb, #ecfdf5, #fff1f2) ไม่ใช่เส้นขอบสีหนาหรือแถบสีข้างการ์ด", "section": "colors" },
+      { "name": "The Single Family Rule", "body": "ห้ามเพิ่มฟอนต์ครอบครัวที่สอง ลำดับชั้นทั้งหมดมาจากน้ำหนัก 300-700 ของ Prompt", "section": "typography" },
+      { "name": "The Readable Floor Rule", "body": "ข้อความเนื้อหาไม่เล็กกว่า 0.875rem และคอนทราสต์ไม่ต่ำกว่า 4.5:1 บนพื้นของมันเอง", "section": "typography" },
+      { "name": "The Flat-By-Default Rule", "body": "พื้นที่พักแบน เงาคือคำตอบต่อสถานะ ไม่ใช่เครื่องประดับ ถ้าเงาเข้มจนเห็นเป็นปื้นบนพื้นขาว แสดงว่าผิดสเกล", "section": "elevation" }
+    ],
+    "dos": [
+      "Do ใช้ Prompt ครอบครัวเดียว น้ำหนัก 300-700 พาลำดับชั้นทั้งหมด",
+      "Do เก็บช่องทางติดต่อของร้านไว้ในจุดหลักเดียว (หัวโมดัล/การ์ดสรุป) ตามหลักการของ PRODUCT.md",
+      "Do ทำให้เป้าหมายแตะทั้งหมดสูงอย่างน้อย 44px และทดสอบที่ความกว้างมือถือว่าไม่มี horizontal overflow",
+      "Do แบ่งหมวดด้วยพื้น tint อ่อนหกตระกูล และเว้นช่องไฟ 16-24px ระหว่างบล็อก",
+      "Do ให้ทุกองค์ประกอบโต้ตอบมีครบ default, hover, focus, active, disabled, loading, error"
+    ],
+    "donts": [
+      "Don't ทำหน้าตาองค์กรที่แข็งทื่อและทำให้ข้อมูลท้องถิ่นดูห่างเหิน (anti-reference จาก PRODUCT.md)",
+      "Don't ใช้การ์ด สี หรือ gradient มากจนแยกลำดับความสำคัญของข้อมูลไม่ได้ (anti-reference จาก PRODUCT.md)",
+      "Don't เปิด modal ซ้อนที่ย้ำข้อมูลหรือ action เดิมหลายจุด โดยเฉพาะช่องทางติดต่อร้านค้า (anti-reference จาก PRODUCT.md)",
+      "Don't ทำฟอร์มหรือรายละเอียดที่แน่นจนอ่านและแตะบนมือถือได้ยาก (anti-reference จาก PRODUCT.md)",
+      "Don't ใช้แถบสีข้างการ์ด (border-left/right หนากว่า 1px) เป็นแอคเซนต์ แบ่งหมวดด้วยพื้น tint เท่านั้น",
+      "Don't ใส่ gradient บนตัวอักษร หรือ glassmorphism เป็นค่าเริ่มต้น",
+      "Don't ใช้เงาเข้มblur น้อยแบบแอปปี 2014 ถ้าเงาดูเป็นปื้นบนพื้นขาว ให้จางลงและเบลอขึ้น"
+    ]
+  }
+}
