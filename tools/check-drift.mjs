@@ -62,16 +62,25 @@ function checkPair1() {
 
 function checkPair2() {
   const name = 'index.html ↔ frontend/index.html';
+  const ported0 = normEol(read('frontend/index.html'));
   let gas = normEol(read('Code/index.html'));
-  const ported = normEol(read('frontend/index.html'));
-  gas = gas
-    .replace(/<\?= appName \?>/g, APP_NAME)
-    .replace(/<\?= orgName \?>/g, ORG_NAME)
-    .replace(
-      /<script src="https:\/\/unpkg\.com\/lucide[^"]*"><\/script>/g,
-      '<script src="/lucide.min.js"></script>'
-    )
-    .replace(/<\?!= include\('[^']*'\); \?>\n?/g, '');
+  // ฝั่ง frontend โหลด lucide ผ่าน main bundle (src/lucide-setup.ts) แล้ว —
+  // ตัดบรรทัด lucide (script tag ทั้งสองรูปแบบ + comment) ออกจากทั้งสองฝั่งก่อนเทียบ
+  const stripLucide = (s) =>
+    s
+      .replace(/<script src="[^"]*lucide[^"]*"><\/script>\n?/g, '')
+      .replace(/[ \t]*<!-- Lucide Icons.*?-->\n?/g, '');
+  const ported = stripLucide(ported0);
+  gas = stripLucide(
+    gas
+      .replace(/<\?= appName \?>/g, APP_NAME)
+      .replace(/<\?= orgName \?>/g, ORG_NAME)
+      .replace(
+        /<script src="https:\/\/unpkg\.com\/lucide[^"]*"><\/script>/g,
+        '<script src="/lucide.min.js"></script>'
+      )
+      .replace(/<\?!= include\('[^']*'\); \?>\n?/g, '')
+  );
   const cutAt = (s) => {
     const i = s.indexOf('</footer>');
     return i < 0 ? s : s.slice(0, i + '</footer>'.length);
