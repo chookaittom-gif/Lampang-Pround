@@ -54,3 +54,17 @@ no API key, $0).
 - ก่อนแก้ UI ใด ๆ: อ่าน Do's and Don'ts ใน `DESIGN.md` (พก anti-references
   จาก PRODUCT.md มาแบบคำต่อคำ)
 <!-- design-context:end -->
+
+## Agent skills
+
+### Issue tracker
+
+GitHub Issues ของ repo นี้ (ใช้ `gh` CLI — repo: chookaittom-gif/Lampang-Pround). See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+ใช้ label เริ่มต้น 5 ตัวตรงตามชื่อ: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+single-context — `CONTEXT.md` + `docs/adr/` ที่ root (สร้างแบบ lazy เมื่อมีการตัดสินใจจริง). See `docs/agents/domain.md`.
