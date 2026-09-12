@@ -14,3 +14,13 @@ graft/
 
 # wrangler local test state
 /.wrangler-test-state/
+worker/.wrangler-test-state/
+
+# AI agent wiring ที่เป็นรายเครื่อง (commit เฉพาะ .claude/ ที่แชร์ทั้งทีม)
+/.codex/
+/.cursor/
+/.gemini/
+/.kiro/
+/.windsurf/
+/.scratch/
+/.ignore
