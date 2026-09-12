@@ -67,16 +67,26 @@ function upload_(payload) {
   }
 
   var fileName = safeFileName_(payload.fileName, mimeType);
-  var folder = getShopFolder_(payload.shopId);
+  var folder;
+  try {
+    folder = getShopFolder_(payload.shopId);
+  } catch (error) {
+    throw new Error('Drive folder access failed.');
+  }
   var file;
   try {
     file = folder.createFile(Utilities.newBlob(bytes, mimeType, fileName));
-    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
   } catch (error) {
     if (file) {
       try { file.setTrashed(true); } catch (ignored) {}
     }
-    throw new Error('Drive upload or public sharing failed.');
+    throw new Error('Drive file creation failed.');
+  }
+  try {
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  } catch (error) {
+    try { file.setTrashed(true); } catch (ignored) {}
+    throw new Error('Drive public sharing failed.');
   }
 
   var id = file.getId();
@@ -125,9 +135,15 @@ function safeFileName_(rawName, mimeType) {
 }
 
 function sniffMime_(bytes) {
-  if (bytes.length >= 3 && bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255) return 'image/jpeg';
-  if (bytes.length >= 8 && bytes.slice(0, 8).join(',') === '137,80,78,71,13,10,26,10') return 'image/png';
-  if (bytes.length >= 4 && bytes.slice(0, 4).join(',') === '71,73,70,56') return 'image/gif';
+  var head = [];
+  for (var i = 0; i < Math.min(bytes.length, 8); i++) {
+    var value = Number(bytes[i]);
+    head.push(value < 0 ? value + 256 : value);
+  }
+  var signature = head.join(',');
+  if (head.length >= 3 && signature.indexOf('255,216,255') === 0) return 'image/jpeg';
+  if (head.length >= 8 && signature === '137,80,78,71,13,10,26,10') return 'image/png';
+  if (head.length >= 4 && signature.indexOf('71,73,70,56') === 0) return 'image/gif';
   return '';
 }
 

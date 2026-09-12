@@ -2791,6 +2791,7 @@
 
   function handleUploadError(shopId, msg) {
     _isUploading = false;
+    _isSaving = false;
     showToast('อัปโหลดล้มเหลว: ' + msg, 'error');
     document.getElementById('gallery-upload-status').textContent = 'เกิดข้อผิดพลาด ให้กดบันทึกใหม่';
     document.getElementById('gallery-upload-status').classList.replace('text-blue-600', 'text-red-600');
