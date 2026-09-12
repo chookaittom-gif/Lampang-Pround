@@ -6,7 +6,10 @@ import { parseJsonArray } from '../lib/format';
 import sarabunRegular from '../assets/Sarabun-Regular.ttf';
 import sarabunBold from '../assets/Sarabun-Bold.ttf';
 
-/** ค่า layout คัดลอกจาก constants ของ Code.gs (บรรทัด 12–27) — layout version v13 */
+/** ค่า layout คัดลอกจาก constants ของ Code.gs (บรรทัด 12–27) — layout version v13
+ *  จานสีงานพิมพ์ผูกกับ DESIGN.md: TEXT_DARK/TEXT_BODY/TEXT_CAPTION = ink/body-text/muted,
+ *  TABLE_HEADER_BG/LABEL_BG = primary-tint/surface-tint, ฟอนต์ Sarabun แทน Prompt
+ *  (งานพิมพ์ราชการ) — เปลี่ยนจานสีเว็บให้กลับมาเทียบตรงนี้ด้วย */
 const PAGE_W = 595;
 const PAGE_H = 842;
 const MARGIN = 36;
@@ -34,6 +37,10 @@ const GALLERY_CAPTION_H = 18;
 const GALLERY_HEAD_RESERVE = 40;
 /** ฟอนต์ข้อความในเซลตารางสินค้า */
 const TABLE_CELL_FONT_SIZE = 10.5;
+/** ระยะบรรทัดข้อความในเซลตารางสินค้า */
+const CELL_LINE_H = 14;
+/** จำนวนบรรทัดสูงสุดต่อเซล (เกินตัดด้วย …) */
+const ROW_MAX_LINES = 4;
 const TABLE_BORDER = rgb(0xb4 / 255, 0xc2 / 255, 0xd2 / 255);
 const TABLE_HEADER_BG = rgb(0xdb / 255, 0xea / 255, 0xfe / 255);
 const LABEL_BG = rgb(0xf8 / 255, 0xfa / 255, 0xfc / 255);
@@ -387,19 +394,27 @@ export async function exportShopPdfNative(
     return looseGallery[globalIndex] ?? null;
   };
   for (let start = 0; start < data.products.length; start += PRODUCT_ROWS_PER_PAGE) {
-    // [P1] จองพื้นที่ตามจำนวนแถวจริงของหน้านี้ (ไม่ใช่เหมา 6 แถว) กันหน้าว่างครึ่งหน้า
-    // กันหัวข้อค้างท้ายหน้า: เช็คที่ทั้งก้อนก่อนวาดหัวข้อ (ไม่ใช่หลังวาด)
-    const rowH = PRODUCT_ROW_H;
-    const headerH = PRODUCT_HEADER_H;
-    if (start > 0) newPage();
-    else {
-      const rowsThisPage = Math.min(data.products.length - start, PRODUCT_ROWS_PER_PAGE);
-      ensureSpace(22 + headerH + rowH * rowsThisPage + 8);
-    }
-    drawSectionHeading('สรุปรายการสินค้า');
+    // [polish] วางแผนแถวล่วงหน้า: wrap ข้อความสูงสุด ROW_MAX_LINES บรรทัด
+    // แถวสูงตามเนื้อหาจริง (ขั้นต่ำ PRODUCT_ROW_H) — ไม่ตัดข้อมูลทิ้งแบบ ellipsis
     const cols = PRODUCT_COL_WIDTHS;
     const total = cols.reduce((a, b) => a + b, 0);
     const startX = MARGIN + (CONTENT_W - total) / 2;
+    const headerH = PRODUCT_HEADER_H;
+    const pageItems = data.products.slice(start, start + PRODUCT_ROWS_PER_PAGE);
+    const rowPlans = pageItems.map((item, k) => {
+      const raw = [String(start + k + 1), '', item.ProductName || NOT_SPECIFIED, item.ProductCategory || NOT_SPECIFIED, item.Description || NOT_SPECIFIED, item.Price || NOT_SPECIFIED];
+      const wrapped = raw.map((c, i) =>
+        i === 1 ? [c] : wrapLines(c, regular, TABLE_CELL_FONT_SIZE, cols[i] - 8, ROW_MAX_LINES)
+      );
+      const maxLines = Math.max(...wrapped.map((w) => w.length));
+      return { item, wrapped, rowH: Math.max(PRODUCT_ROW_H, maxLines * CELL_LINE_H + 16) };
+    });
+    const bodyH = rowPlans.reduce((sum, p) => sum + p.rowH, 0);
+    // [P1] จองพื้นที่ตามจำนวนแถวจริงของหน้านี้ (ไม่ใช่เหมา 6 แถว) กันหน้าว่างครึ่งหน้า
+    // กันหัวข้อค้างท้ายหน้า: เช็คที่ทั้งก้อนก่อนวาดหัวข้อ (ไม่ใช่หลังวาด)
+    if (start > 0) newPage();
+    else ensureSpace(22 + headerH + bodyH + 8);
+    drawSectionHeading('สรุปรายการสินค้า');
     const headerRow = ['ลำดับ', 'รูปภาพ', 'ชื่อสินค้า', 'หมวดหมู่', 'รายละเอียด', 'ราคา'];
     let x = startX;
     let rowTop = y;
@@ -409,19 +424,18 @@ export async function exportShopPdfNative(
       x += cols[i];
     }
     y -= headerH;
-    const pageItems = data.products.slice(start, start + PRODUCT_ROWS_PER_PAGE);
     // [P2 optimize] ฝังรูปทั้งหน้าพร้อมกัน ไม่รอทีละใบ
     const thumbs = await Promise.all(
-      pageItems.map(async (item, k) => {
-        const gItem = galleryForProduct(start + k, Number(item.SortOrder ?? 0));
+      rowPlans.map(async (plan, k) => {
+        const gItem = galleryForProduct(start + k, Number(plan.item.SortOrder ?? 0));
         return gItem ? embedImage(env, pdf, gItem.Url) : null;
       })
     );
-    for (let idx = 0; idx < pageItems.length; idx++) {
-      const item = pageItems[idx];
+    for (let idx = 0; idx < rowPlans.length; idx++) {
+      const plan = rowPlans[idx];
+      const rowH = plan.rowH;
       rowTop = y;
       x = startX;
-      const cells = [String(start + idx + 1), '', item.ProductName || NOT_SPECIFIED, item.ProductCategory || NOT_SPECIFIED, item.Description || NOT_SPECIFIED, item.Price || NOT_SPECIFIED];
       const thumb = thumbs[idx];
       for (let i = 0; i < cols.length; i++) {
         page.drawRectangle({ x, y: rowTop - rowH, width: cols[i], height: rowH, borderColor: TABLE_BORDER, borderWidth: 0.75, color: WHITE });
@@ -445,14 +459,12 @@ export async function exportShopPdfNative(
             text(t, x + (cols[i] - tw) / 2, rowTop - rowH / 2 - 3, 9, regular, TEXT_CAPTION);
           }
         } else {
-          // [P2 typeset] wrap ได้ 2 บรรทัด (ไทยตัดรายอักขระ) เกินค่อยตัดด้วย …
-          const lines = wrapLines(cells[i], regular, TABLE_CELL_FONT_SIZE, cols[i] - 8, 2);
-          if (lines.length === 1) {
-            text(lines[0], x + 4, rowTop - rowH / 2 - 3, TABLE_CELL_FONT_SIZE, regular, TEXT_BODY);
-          } else {
-            text(lines[0], x + 4, rowTop - rowH / 2 + 4, TABLE_CELL_FONT_SIZE, regular, TEXT_BODY);
-            text(lines[1], x + 4, rowTop - rowH / 2 - 10, TABLE_CELL_FONT_SIZE, regular, TEXT_BODY);
-          }
+          // ข้อความหลายบรรทัดจัดกลางแนวตั้ง (จุดศูนย์เดียวกับบรรทัดเดี่ยวเดิม)
+          const lines = plan.wrapped[i];
+          const firstBase = rowTop - rowH / 2 + ((lines.length - 1) * CELL_LINE_H) / 2 - 3;
+          lines.forEach((line, li) => {
+            text(line, x + 4, firstBase - li * CELL_LINE_H, TABLE_CELL_FONT_SIZE, regular, TEXT_BODY);
+          });
         }
         x += cols[i];
       }
