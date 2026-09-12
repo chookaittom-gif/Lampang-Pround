@@ -28,13 +28,12 @@ const header = `/**
 
 const bindings = `
 // ---- Global bindings (แทน global scope เดิมของ <script> คลาสสิก: inline onclick อ้าง global) ----
-export const __legacyGlobals = [${toBind.map((n) => JSON.stringify(n)).join(', ')}];
-for (const name of __legacyGlobals) {
-  try {
-    const value = (0, eval)('typeof ' + name + " !== 'undefined' ? " + name + ' : undefined');
+export const __legacyGlobals = {
+  ${toBind.map((n) => `${n}: typeof ${n} === 'function' ? ${n} : undefined`).join(',\n  ')}
+};
+export function installLegacyGlobals() {
+  for (const [name, value] of Object.entries(__legacyGlobals)) {
     if (typeof value === 'function') (window as any)[name] = value;
-  } catch {
-    /* ไม่มีชื่อนี้ — ข้าม */
   }
 }
 `;

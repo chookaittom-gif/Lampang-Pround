@@ -1,0 +1,11 @@
+{
+  "name": "lampang-pround-migration",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "export-source": "node export-source.mjs",
+    "migrate": "node migrate.mjs",
+    "verify": "node verify.mjs",
+    "typecheck": "node --check export-source.mjs && node --check migrate.mjs && node --check verify.mjs && echo OK"
+  }
+}

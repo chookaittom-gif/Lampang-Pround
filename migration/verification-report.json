@@ -1,0 +1,86 @@
+{
+  "checkedAt": "2026-09-10T07:27:12.899Z",
+  "checks": [
+    {
+      "name": "Legacy count",
+      "ok": true,
+      "detail": "source 301 / target 301 (target ≥ source เพราะระบบใหม่มีข้อมูลที่ผู้ใช้เพิ่มหลัง export)"
+    },
+    {
+      "name": "Users count",
+      "ok": true,
+      "detail": "source 5 / target 5"
+    },
+    {
+      "name": "Shops count",
+      "ok": true,
+      "detail": "source 32 / target 32"
+    },
+    {
+      "name": "Products count",
+      "ok": true,
+      "detail": "source 177 / target 177"
+    },
+    {
+      "name": "Gallery count",
+      "ok": true,
+      "detail": "source 761 / target 761"
+    },
+    {
+      "name": "Duplicate LamproundID",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "name": "Missing legacy rows",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "name": "Missing shops",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "name": "Missing products",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "name": "Missing gallery",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "name": "Orphan products",
+      "ok": true,
+      "detail": "source 2 / target 2 แถว"
+    },
+    {
+      "name": "Orphan gallery",
+      "ok": true,
+      "detail": "source 6 / target 6 แถว"
+    },
+    {
+      "name": "Missing images",
+      "ok": true,
+      "detail": "0 รูป"
+    },
+    {
+      "name": "Soft delete parity (legacy)",
+      "ok": true,
+      "detail": "source 1 / target 1"
+    },
+    {
+      "name": "Soft delete parity (gallery)",
+      "ok": true,
+      "detail": "source 89 / target 89"
+    },
+    {
+      "name": "R2 registry",
+      "ok": true,
+      "detail": "0 objects (Drive-only is valid when URLs are present)"
+    }
+  ],
+  "pass": true
+}
