@@ -5,6 +5,7 @@
 import './styles/custom.css';
 import './styles/tailwind.css';
 import './api';
+import './lucide-setup';
 import { installLegacyGlobals } from './legacy/app';
 import './legacy/bootstrap';
 
