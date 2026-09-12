@@ -44,7 +44,7 @@ async function getLegacyByBackendId(
     .first<LegacyRowRaw>();
 }
 
-/** ถ้าค่ารูปเป็น data URL → ย้ายไป storage ที่ตั้งค่าไว้, อื่น ๆ คืนตามเดิม (URL/empty) */
+/** ถ้าค่ารูปเป็น data URL → ส่งผ่าน image adapter คืน URL, อื่น ๆ คืนตามเดิม (URL/empty) */
 async function resolveImageRef(
   env: Env,
   shopId: string,
@@ -55,8 +55,8 @@ async function resolveImageRef(
   if (!text) return '';
   if (text.startsWith('data:image/')) {
     const bytes = decodeBase64Payload(text);
-    const stored = await storeImage(env, shopId, name, bytes, 'legacy_base64', name);
-    return stored.storage === 'drive' ? stored.driveUrl : stored.key;
+    const stored = await storeImage(env, shopId, name, bytes, 'legacy_base64');
+    return stored.driveUrl || stored.key;
   }
   return text;
 }
@@ -109,7 +109,7 @@ export async function replaceProductsByShopId(
 
 /** คัดลอกพฤติกรรม syncProductGalleryFromItems_ (บรรทัด 1551–1625):
  *  soft-delete รูป role product/gallery ของร้าน แล้ว re-upload รูปจาก product items
- *  อัปโหลดทั้งหมดก่อน แล้วจึงเขียน D1 ครั้งเดียว — ไม่มี partial write */
+ *  ต่างจากเดิม: R2 upload ทั้งหมดก่อน แล้วจึงเขียน D1 ครั้งเดียว — ไม่มี partial write */
 async function syncProductGalleryFromItems(
   env: Env,
   shopId: string,
@@ -127,6 +127,7 @@ async function syncProductGalleryFromItems(
     sortOrder: number;
     displayName: string;
     driveFileId?: string;
+    idempotencyKey?: string;
   }[] = [];
   for (let p = 0; p < items.length; p++) {
     const item = items[p] || {};
@@ -138,7 +139,13 @@ async function syncProductGalleryFromItems(
         : p + 1;
     const displayName = String(item.productName ?? item.ProductName ?? '').trim() || `product-${sortOrder}`;
     if (imageValue.startsWith('data:image/')) {
-      uploads.push({ bytes: decodeBase64Payload(imageValue), fileName: displayName, sortOrder, displayName });
+      uploads.push({
+        bytes: decodeBase64Payload(imageValue),
+        fileName: displayName,
+        sortOrder,
+        displayName,
+        idempotencyKey: `product|${shopId}|${p}|${displayName}`,
+      });
       continue;
     }
     const driveFileId = extractDriveFileIdFromUrl(imageValue);
@@ -168,18 +175,14 @@ async function syncProductGalleryFromItems(
         shopId,
         upload.fileName || 'product',
         upload.bytes,
-        'upload'
+        'upload',
+        upload.idempotencyKey || ''
       );
+      driveFileId = stored.driveFileId || '';
       mimeType = stored.mimeType;
       fileSize = stored.size;
-      if (stored.storage === 'drive') {
-        driveFileId = stored.driveFileId;
-        driveUrl = stored.driveUrl;
-        thumbnailUrl = stored.thumbnailUrl;
-      } else {
-        driveUrl = `${origin}/images/${stored.key}`;
-        thumbnailUrl = driveUrl;
-      }
+      driveUrl = stored.driveUrl || `${origin}/images/${stored.key}`;
+      thumbnailUrl = stored.thumbnailUrl || driveUrl;
     } else if (upload.driveFileId) {
       driveFileId = upload.driveFileId;
       // คัดลอกพฤติกรรม appendGalleryRowFromDriveFile_: อ้างไฟล์เดิมของ Drive
@@ -190,6 +193,7 @@ async function syncProductGalleryFromItems(
         .bind(driveFileId)
         .first<{ object_key: string }>();
       if (existing) {
+        driveFileId = upload.driveFileId;
         const key = existing.object_key;
         driveUrl = `${origin}/images/${key}`;
         thumbnailUrl = driveUrl;

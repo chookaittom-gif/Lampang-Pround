@@ -20,6 +20,7 @@ import {
   handleExportShopPdf,
   handleExportExcel,
   handleExcelDownload,
+  handlePdfDownload,
   handleCleanupPdf,
 } from './routes/export';
 
@@ -71,15 +72,16 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
   }
 
   if (request.method === 'GET' && path.startsWith('/api/export/pdf/')) {
-    return handleExcelDownload(request, env);
+    return handlePdfDownload(request, env);
   }
 
-  // รูปจาก R2 เมื่อ environment นั้นผูก ASSETS: GET /images/<key>
+  // รูปจาก R2 legacy/local mode: GET /images/<key>
   if (request.method === 'GET' && path.startsWith('/images/')) {
     const key = decodeURIComponent(path.slice('/images/'.length));
-    if (!env.ASSETS || !key || key.includes('..')) {
+    if (!key || key.includes('..')) {
       return new Response('Not found', { status: 404 });
     }
+    if (!env.ASSETS) return new Response('Not found', { status: 404 });
     const object = await env.ASSETS.get(key);
     if (!object) return new Response('Not found', { status: 404 });
     const headers = new Headers();

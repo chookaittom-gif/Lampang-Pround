@@ -5,5 +5,7 @@
 import './styles/custom.css';
 import './styles/tailwind.css';
 import './api';
-import './legacy/app';
+import { installLegacyGlobals } from './legacy/app';
 import './legacy/bootstrap';
+
+installLegacyGlobals();

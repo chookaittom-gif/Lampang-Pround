@@ -1,4 +1,5 @@
 import type { Env } from '../env';
+import { getActiveSessionResult, type Session } from '../lib/auth';
 import { jsonResponse, readBody } from '../lib/http';
 import { parseJsonArray } from '../lib/format';
 
@@ -6,9 +7,38 @@ import { parseJsonArray } from '../lib/format';
  *  1) PDF_NATIVE='on' → สร้างใน Worker ด้วย pdf-lib + Sarabun (หลังผ่านการเทียบ parity ใน staging)
  *  2) GAS_WEB_APP_URL ตั้งไว้ → proxy ไป GAS (GAS ฝั่ง doGet จะเพิ่ม action API ในเฟส 8)
  *  3) ไม่มีทั้งสอง → 501 พร้อมข้อความชัดเจน
- *  ห้ามเปลี่ยน behavior ก่อนผ่านการเทียบ parity รายร้าน */
+ *  ห้ามเปลี่ยน layout/ข้อมูลก่อนผ่านการเทียบ parity รายร้าน */
 export async function handleExportShopPdf(request: Request, env: Env): Promise<Response> {
   const payload = (await readBody(request)) as Record<string, unknown>;
+  const token = String(payload.token ?? '').trim();
+  const authResult = await getActiveSessionResult(env, token);
+  if (authResult.error) return jsonResponse(authResult.error, 200, env);
+  const session = authResult.session;
+  const role = String(session?.role || '').trim().toLowerCase();
+  if (session && role !== 'admin' && role !== 'user') {
+    return jsonResponse({ success: false, message: 'คุณไม่มีสิทธิ์ดาวน์โหลดไฟล์นี้' }, 200, env);
+  }
+  const backendId = String(payload.backendId ?? '').trim();
+  if (role === 'user' || !session) {
+    const row = await env.DB.prepare(
+      `SELECT created_by FROM legacy_records
+       WHERE backend_id = ? AND UPPER(TRIM(COALESCE(is_deleted, ''))) != 'TRUE'`
+    )
+      .bind(backendId)
+      .first<{ created_by: string }>();
+    if (!row) return jsonResponse({ success: false, message: 'ไม่พบรายการในฐานข้อมูล' }, 200, env);
+    if (
+      role === 'user' &&
+      session &&
+      String(row.created_by || '').trim().toLowerCase() !== String(session.username).trim().toLowerCase()
+    ) {
+      return jsonResponse(
+        { success: false, message: 'คุณไม่มีสิทธิ์ดาวน์โหลดรายการของผู้อื่น' },
+        200,
+        env
+      );
+    }
+  }
 
   if (String(env.PDF_NATIVE || '').trim().toLowerCase() === 'on') {
     const { exportShopPdfNative } = await import('./pdf');
@@ -20,12 +50,14 @@ export async function handleExportShopPdf(request: Request, env: Env): Promise<R
     const url = new URL(request.url);
     const downloadUrl = `${url.origin}/api/export/pdf/${token}`;
     const stamp = thaiTimestamp();
+    const pdfFileName = `[TEMP] ${result.pdfName ?? 'shop-report'}_${stamp}.pdf`;
+    const asciiPdfFileName = pdfFileName.replace(/[^A-Za-z0-9._ -]/g, '_');
     await caches.default.put(
       downloadUrl,
       new Response(result.bytes as unknown as ArrayBuffer, {
         headers: {
           'content-type': 'application/pdf',
-          'content-disposition': `attachment; filename="[TEMP] ${result.pdfName ?? 'shop-report'}_${stamp}.pdf"`,
+          'content-disposition': `attachment; filename="${asciiPdfFileName}"; filename*=UTF-8''${encodeURIComponent(pdfFileName)}`,
           'cache-control': 'public, max-age=600',
         },
       })
@@ -99,7 +131,12 @@ interface ExportRow {
   location_text: string;
   avg_price: string;
   sales_channel: string;
+  _rid?: number;
 }
+
+/** D1 จำกัดจำนวน bound parameters ต่อ query — แบ่ง IN (...) เป็น chunk
+ *  เล็ก ๆ แล้วรวมผล (กัน D1_ERROR: too many SQL variables เมื่อ export หลายร้อยรายการ) */
+const EXPORT_ID_CHUNK_SIZE = 80;
 
 function buildContactCell(row: ExportRow): string {
   // คัดลอกจาก exportCleanExcelFile: Line:/FB:/Web: บรรทัดละช่อง หรือ '-'
@@ -112,29 +149,53 @@ function buildContactCell(row: ExportRow): string {
 
 async function buildExcelWorkbook(
   env: Env,
-  recordIds: string[]
+  recordIds: string[],
+  session: Session | null
 ): Promise<{ buffer: ArrayBuffer; count: number }> {
   const exceljs = await import('exceljs');
   const workbook = new exceljs.Workbook();
   const sheet = workbook.addWorksheet('ข้อมูลผู้ประกอบการ');
+  // พิมพ์พอดี 1 หน้ากว้าง กระดาษ A4 แนวนอน (แถวยาวลงหน้าถัดไปเอง)
+  sheet.pageSetup = {
+    paperSize: 9, // A4
+    orientation: 'landscape',
+    fitToPage: true,
+    fitToWidth: 1,
+    fitToHeight: 0,
+    printTitlesRow: '1:1',
+  };
+  sheet.views = [{ state: 'frozen', ySplit: 1 }];
+  const isUser = String(session?.role || '').trim().toLowerCase() === 'user';
+  const ownershipClause = isUser
+    ? ` AND LOWER(TRIM(COALESCE(created_by, ''))) = LOWER(TRIM(?))`
+    : '';
+  const ownershipParam = isUser ? [session?.username ?? ''] : [];
 
   let rows: ExportRow[];
   if (recordIds.length) {
-    const placeholders = recordIds.map(() => '?').join(', ');
-    rows = await env.DB.prepare(
-      `SELECT business_name, owner_name, phone, line_id, facebook, website,
-       location_text, avg_price, sales_channel FROM legacy_records
-       WHERE UPPER(TRIM(is_deleted)) != 'TRUE' AND backend_id IN (${placeholders}) ORDER BY rowid`
-    )
-      .bind(...recordIds)
-      .all<ExportRow>()
-      .then((r) => r.results);
+    rows = [];
+    for (let i = 0; i < recordIds.length; i += EXPORT_ID_CHUNK_SIZE) {
+      const chunk = recordIds.slice(i, i + EXPORT_ID_CHUNK_SIZE);
+      const placeholders = chunk.map(() => '?').join(', ');
+      const chunkRows = await env.DB.prepare(
+        `SELECT rowid AS _rid, business_name, owner_name, phone, line_id, facebook, website,
+         location_text, avg_price, sales_channel FROM legacy_records
+         WHERE UPPER(TRIM(is_deleted)) != 'TRUE' AND backend_id IN (${placeholders})${ownershipClause} ORDER BY rowid`
+      )
+        .bind(...chunk, ...ownershipParam)
+        .all<ExportRow>()
+        .then((r) => r.results);
+      rows.push(...chunkRows);
+    }
+    // รวมหลาย chunk แล้วจัดลำดับตาม rowid ให้เหมือน query เดียว
+    rows.sort((a, b) => Number(a._rid ?? 0) - Number(b._rid ?? 0));
   } else {
     rows = await env.DB.prepare(
       `SELECT business_name, owner_name, phone, line_id, facebook, website,
        location_text, avg_price, sales_channel FROM legacy_records
-       WHERE UPPER(TRIM(is_deleted)) != 'TRUE' ORDER BY rowid`
+       WHERE UPPER(TRIM(is_deleted)) != 'TRUE'${ownershipClause} ORDER BY rowid`
     )
+      .bind(...ownershipParam)
       .all<ExportRow>()
       .then((r) => r.results);
   }
@@ -151,7 +212,8 @@ async function buildExcelWorkbook(
       right: { style: 'thin', color: { argb: 'FFCBD5E1' } },
     };
   });
-  [48, 150, 110, 90, 125, 172, 75, 105].forEach((width, i) => {
+  // ความกว้างคอลัมน์ (หน่วยตัวอักษร) รวมพอดี A4 แนวนอน + ตัดคำขึ้นบรรทัดใหม่
+  [7, 30, 22, 16, 24, 30, 13, 20].forEach((width, i) => {
     sheet.getColumn(i + 1).width = width;
   });
 
@@ -169,6 +231,7 @@ async function buildExcelWorkbook(
     ]);
     added.eachCell((cell) => {
       cell.font = { name: 'Sarabun', size: 10 };
+      cell.alignment = { vertical: 'middle', wrapText: true };
       cell.border = {
         top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
         left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
@@ -188,13 +251,28 @@ async function buildExcelWorkbook(
 export async function handleExportExcel(request: Request, env: Env): Promise<Response> {
   try {
     const payload = (await readBody(request)) as Record<string, unknown>;
+    const token = String(payload.token ?? '').trim();
+    const authResult = await getActiveSessionResult(env, token);
+    if (authResult.error) return jsonResponse(authResult.error, 200, env);
+    const session = authResult.session;
+    const role = String(session?.role || '').trim().toLowerCase();
+    if (session && role !== 'admin' && role !== 'user') {
+      return jsonResponse({ success: false, message: 'คุณไม่มีสิทธิ์ดาวน์โหลดไฟล์นี้' }, 200, env);
+    }
     const recordIds = Array.isArray(payload.recordIds)
-      ? (payload.recordIds as unknown[]).map((v) => String(v)).filter(Boolean)
+      ? Array.from(new Set((payload.recordIds as unknown[]).map((v) => String(v)).filter(Boolean)))
       : [];
-    const { buffer, count } = await buildExcelWorkbook(env, recordIds);
-    const token = crypto.randomUUID();
+    const { buffer, count } = await buildExcelWorkbook(env, recordIds, session);
+    if (count === 0) {
+      return jsonResponse(
+        { success: false, message: 'ไม่พบรายการที่มีสิทธิ์ส่งออก' },
+        200,
+        env
+      );
+    }
+    const downloadToken = crypto.randomUUID();
     const url = new URL(request.url);
-    const downloadUrl = `${url.origin}/api/export/excel/${token}`;
+    const downloadUrl = `${url.origin}/api/export/excel/${downloadToken}`;
     const stamp = thaiTimestamp();
     await caches.default.put(
       downloadUrl,
@@ -230,4 +308,12 @@ export async function handleExcelDownload(request: Request, env: Env): Promise<R
   const cached = await caches.default.match(request);
   if (cached) return cached;
   return jsonResponse({ success: false, message: 'ไฟล์หมดอายุ กรุณาสร้างใหม่อีกครั้ง' }, 404, env);
+}
+
+/** ดาวน์โหลด PDF ที่ exportShopPdf ฝากไว้ใน Cache API (10 นาที) — แยกจาก Excel
+ *  เพื่อให้ข้อความหมดอายุถูกต้องตามชนิดไฟล์ (logic เดียวกัน: match ตาม URL ตรง) */
+export async function handlePdfDownload(request: Request, env: Env): Promise<Response> {
+  const cached = await caches.default.match(request);
+  if (cached) return cached;
+  return jsonResponse({ success: false, message: 'ไฟล์ PDF หมดอายุ กรุณาสร้างใหม่อีกครั้ง' }, 404, env);
 }

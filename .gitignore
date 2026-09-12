@@ -8,3 +8,9 @@ dist/
 .wrangler/
 *.local
 .env
+
+# graft's local graph cache — regenerable, not committed (run `graft build`).
+graft/
+
+# wrangler local test state
+/.wrangler-test-state/
