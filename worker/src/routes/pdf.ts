@@ -20,8 +20,8 @@ const PRODUCT_COL_WIDTHS = [34, 108, 116, 78, 62, 125];
 const IMAGE_CELL_SIZE = 180;
 /** ระยะเว้น 1 บรรทัดระหว่างหัวข้อหมวดรูปกับรูปภาพ */
 const HEADING_IMAGE_GAP = 12;
-/** ระยะเว้นระหว่างตารางสินค้ากับหมวดรูปสินค้า (ตอนอยู่หน้าเดียวกัน) */
-const GALLERY_SECTION_GAP = 14;
+/** ระยะเว้นเหนือหัวข้อหมวด (แยกหมวด ไม่นับตอนอยู่ต้นหน้า) */
+const SECTION_HEAD_SPACE_ABOVE = 10;
 // ── Layout tokens กลางไฟล์ (ห้าม hardcode ตัวเลขซ้ำใน logic ด้านล่าง) ──
 /** ความสูงแถวตารางสินค้า (จุรูป + ข้อความ 2 บรรทัด) */
 const PRODUCT_ROW_H = 56;
@@ -340,6 +340,8 @@ export async function exportShopPdfNative(
 
   const drawSectionHeading = (title: string): void => {
     ensureSpace(34);
+    // เว้นวรรคเหนือหัวข้อเพื่อแยกหมวด (ไม่เว้นตอนอยู่ต้นหน้าพอดี)
+    if (y < PAGE_H - MARGIN - 1) y -= SECTION_HEAD_SPACE_ABOVE;
     text(title, MARGIN, y - 14, 13.5, bold, TEXT_DARK);
     y -= 22;
   };
@@ -413,7 +415,7 @@ export async function exportShopPdfNative(
     // [P1] จองพื้นที่ตามจำนวนแถวจริงของหน้านี้ (ไม่ใช่เหมา 6 แถว) กันหน้าว่างครึ่งหน้า
     // กันหัวข้อค้างท้ายหน้า: เช็คที่ทั้งก้อนก่อนวาดหัวข้อ (ไม่ใช่หลังวาด)
     if (start > 0) newPage();
-    else ensureSpace(22 + headerH + bodyH + 8);
+    else ensureSpace(SECTION_HEAD_SPACE_ABOVE + 22 + headerH + bodyH + 8);
     drawSectionHeading('สรุปรายการสินค้า');
     const headerRow = ['ลำดับ', 'รูปภาพ', 'ชื่อสินค้า', 'หมวดหมู่', 'รายละเอียด', 'ราคา'];
     let x = startX;
@@ -473,8 +475,7 @@ export async function exportShopPdfNative(
   }
 
   // ── Gallery grid ('รูปสินค้า/ผลิตภัณฑ์' เท่านั้น — renderGallerySectionsForPdf_) ──
-  // เว้นวรรคจากตารางสินค้าก่อน (กรณีต่อหน้าเดียวกันหัวข้อจะได้ไม่ชิดตาราง)
-  y -= GALLERY_SECTION_GAP;
+  // ระยะแยกหมวดอยู่ใน drawSectionHeading แล้ว (SECTION_HEAD_SPACE_ABOVE) ไม่ต้องเว้นซ้ำ
   const productGallery = data.gallery.filter((g) => g.ImageRole === 'product' || g.ImageRole === 'gallery');
   ensureSpace(GALLERY_HEAD_RESERVE);
   if (productGallery.length === 0) {
@@ -496,12 +497,13 @@ export async function exportShopPdfNative(
     let cellSize: number;
     if (productGallery.length === 1) {
       cellSize = Math.min(340, (CONTENT_W - gap * (config.cols - 1)) / config.cols);
-      cellSize = Math.max(cellSize, fitSingle(22 + HEADING_IMAGE_GAP));
+      cellSize = Math.max(cellSize, fitSingle(SECTION_HEAD_SPACE_ABOVE + 22 + HEADING_IMAGE_GAP));
     } else {
       cellSize = Math.min(IMAGE_CELL_SIZE, (CONTENT_W - gap * (config.cols - 1)) / config.cols);
     }
     // ที่เหลือไม่พอแถวแรก → ขึ้นหน้าใหม่ก่อนวาดหัวข้อ แล้วขยายรูปเดี่ยวใหม่
-    if (y - 22 - HEADING_IMAGE_GAP - (cellSize + captionH + 8) < MARGIN) {
+    // (หลังขึ้นหน้า หัวข้ออยู่ต้นหน้าพอดี ไม่นับ above-gap)
+    if (y - SECTION_HEAD_SPACE_ABOVE - 22 - HEADING_IMAGE_GAP - (cellSize + captionH + 8) < MARGIN) {
       newPage();
       if (productGallery.length === 1) {
         cellSize = Math.max(cellSize, fitSingle(22 + HEADING_IMAGE_GAP));
