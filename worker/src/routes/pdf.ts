@@ -343,11 +343,12 @@ export async function exportShopPdfNative(
     return looseGallery[globalIndex] ?? null;
   };
   for (let start = 0; start < data.products.length; start += 6) {
-    if (start > 0) newPage();
-    drawSectionHeading('สรุปรายการสินค้า');
     // แถวสินค้าสูง 56pt ให้รูปมีขนาดมองเห็นชัด (6 แถว/หน้าเท่าเดิม ยังพอดี 1 หน้า)
     const rowH = 56;
-    ensureSpace(24 + rowH * 6 + 8);
+    if (start > 0) newPage();
+    // กันหัวข้อค้างท้ายหน้า: เช็คที่ทั้งก้อนก่อนวาดหัวข้อ (ไม่ใช่หลังวาด)
+    else ensureSpace(22 + 24 + rowH * 6 + 8);
+    drawSectionHeading('สรุปรายการสินค้า');
     const cols = PRODUCT_COL_WIDTHS;
     const total = cols.reduce((a, b) => a + b, 0);
     const startX = MARGIN + (CONTENT_W - total) / 2;
@@ -405,15 +406,31 @@ export async function exportShopPdfNative(
     text(EMPTY_SECTION, MARGIN, y - 12, 10.5, regular, TEXT_CAPTION);
     y -= 22;
   } else {
-    // มีรูป → ขึ้นหน้าใหม่แล้ววาดหัวข้อครั้งเดียว (กันหัวข้อค้างว่าง ๆ ท้ายหน้าก่อน)
-    newPage();
-    drawSectionHeading('รูปสินค้า/ผลิตภัณฑ์');
+    // มีรูป → ต่อหน้าเดียวกับตารางสินค้าถ้าที่พอ (ไม่บังคับขึ้นหน้าใหม่)
     const config = galleryGridConfig(productGallery.length);
     const gap = 16;
-    // รูปเดี่ยวขยายใหญ่เต็มตา (สูงสุด 340px) หลายรูปคงขนาดเดิม 180px
-    const maxCell = productGallery.length === 1 ? 340 : IMAGE_CELL_SIZE;
-    const cellSize = Math.min(maxCell, (CONTENT_W - gap * (config.cols - 1)) / config.cols);
     const captionH = 18;
+    // รูปเดี่ยวขยายให้เต็มพื้นที่หน้าที่เหลือ (ไม่เกินความกว้างเนื้อหา)
+    // หลายรูปคงขนาดเดิม 180px
+    const fitSingle = (upper: number): number => {
+      const availH = y - upper - MARGIN - captionH - 8;
+      return Math.max(0, Math.min(CONTENT_W, availH));
+    };
+    let cellSize: number;
+    if (productGallery.length === 1) {
+      cellSize = Math.min(340, (CONTENT_W - gap * (config.cols - 1)) / config.cols);
+      cellSize = Math.max(cellSize, fitSingle(22));
+    } else {
+      cellSize = Math.min(IMAGE_CELL_SIZE, (CONTENT_W - gap * (config.cols - 1)) / config.cols);
+    }
+    // ที่เหลือไม่พอแถวแรก → ขึ้นหน้าใหม่ก่อนวาดหัวข้อ แล้วขยายรูปเดี่ยวใหม่
+    if (y - 22 - (cellSize + captionH + 8) < MARGIN) {
+      newPage();
+      if (productGallery.length === 1) {
+        cellSize = Math.max(cellSize, fitSingle(22));
+      }
+    }
+    drawSectionHeading('รูปสินค้า/ผลิตภัณฑ์');
     let index = 0;
     let continuation = false;
     while (index < productGallery.length) {
