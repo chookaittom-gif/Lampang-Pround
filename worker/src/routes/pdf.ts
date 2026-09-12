@@ -17,6 +17,8 @@ const PRODUCT_COL_WIDTHS = [34, 108, 116, 78, 62, 125];
 const IMAGE_CELL_SIZE = 180;
 /** ระยะเว้น 1 บรรทัดระหว่างหัวข้อหมวดรูปกับรูปภาพ */
 const HEADING_IMAGE_GAP = 12;
+/** ระยะเว้นระหว่างตารางสินค้ากับหมวดรูปสินค้า (ตอนอยู่หน้าเดียวกัน) */
+const GALLERY_SECTION_GAP = 14;
 const TABLE_BORDER = rgb(0xb4 / 255, 0xc2 / 255, 0xd2 / 255);
 const TABLE_HEADER_BG = rgb(0xdb / 255, 0xea / 255, 0xfe / 255);
 const LABEL_BG = rgb(0xf8 / 255, 0xfa / 255, 0xfc / 255);
@@ -400,6 +402,8 @@ export async function exportShopPdfNative(
   }
 
   // ── Gallery grid ('รูปสินค้า/ผลิตภัณฑ์' เท่านั้น — renderGallerySectionsForPdf_) ──
+  // เว้นวรรคจากตารางสินค้าก่อน (กรณีต่อหน้าเดียวกันหัวข้อจะได้ไม่ชิดตาราง)
+  y -= GALLERY_SECTION_GAP;
   const productGallery = data.gallery.filter((g) => g.ImageRole === 'product' || g.ImageRole === 'gallery');
   ensureSpace(40);
   if (productGallery.length === 0) {
