@@ -124,7 +124,7 @@ async function buildExcelWorkbook(
     rows = await env.DB.prepare(
       `SELECT business_name, owner_name, phone, line_id, facebook, website,
        location_text, avg_price, sales_channel FROM legacy_records
-       WHERE is_deleted = 'FALSE' AND backend_id IN (${placeholders}) ORDER BY rowid`
+       WHERE UPPER(TRIM(is_deleted)) != 'TRUE' AND backend_id IN (${placeholders}) ORDER BY rowid`
     )
       .bind(...recordIds)
       .all<ExportRow>()
@@ -133,7 +133,7 @@ async function buildExcelWorkbook(
     rows = await env.DB.prepare(
       `SELECT business_name, owner_name, phone, line_id, facebook, website,
        location_text, avg_price, sales_channel FROM legacy_records
-       WHERE is_deleted = 'FALSE' ORDER BY rowid`
+       WHERE UPPER(TRIM(is_deleted)) != 'TRUE' ORDER BY rowid`
     )
       .all<ExportRow>()
       .then((r) => r.results);
