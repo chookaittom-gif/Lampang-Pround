@@ -4587,7 +4587,7 @@
       XLSX.utils.book_append_sheet(wb, ws, 'รายการ');
       var date = new Date();
       var dateStr = date.getFullYear() + ('0' + (date.getMonth() + 1)).slice(-2) + ('0' + date.getDate()).slice(-2);
-      XLSX.writeFile(wb, 'LampangProud_List_' + dateStr + '.xlsx');
+      XLSX.writeFile(wb, 'LampangPround_List_' + dateStr + '.xlsx');
       showToast('ดาวน์โหลด Excel สำเร็จแล้ว', 'success');
     } catch (e) {
       showToast('ไม่สามารถสร้าง Excel ได้', 'error');
@@ -4667,6 +4667,25 @@
     });
 
     return _chartJsLoadPromise;
+  }
+
+  function normalizeBusinessStatusLabel(val) {
+    var raw = formatDetailValue(val);
+    if (!raw || raw === '-') return 'ไม่ระบุ';
+    var lower = String(raw).trim().toLowerCase();
+    if (lower.indexOf('มั่นคง') !== -1 || lower.indexOf('stable') !== -1) return 'มั่นคง Stable';
+    if (lower.indexOf('กำลังพัฒนา') !== -1 || lower.indexOf('growth') !== -1) return 'กำลังพัฒนา Growth';
+    if (lower.indexOf('เริ่มต้น') !== -1 || lower.indexOf('startup') !== -1) return 'เริ่มต้น Startup';
+    return raw;
+  }
+
+  function countByBusinessStatus(records) {
+    var counts = {};
+    records.forEach(function(item) {
+      var val = normalizeBusinessStatusLabel(item.BusinessStatus);
+      counts[val] = (counts[val] || 0) + 1;
+    });
+    return counts;
   }
 
   function countByField(records, field) {
@@ -4784,7 +4803,7 @@
     });
 
     var typeCounts = countByField(recordsData, 'BusinessType');
-    var statusCounts = countByField(recordsData, 'BusinessStatus');
+    var statusCounts = countByBusinessStatus(recordsData);
     var levelCounts = countByField(recordsData, 'BusinessLevel');
     var potentialCounts = countByField(recordsData, 'PotentialLevel');
     var channelCounts = countByMultiField(recordsData, 'SalesChannel');
@@ -5850,6 +5869,8 @@ export const __legacyGlobals = {
   phoneForListExport_: typeof phoneForListExport_ === 'function' ? phoneForListExport_ : undefined,
   restoreExcelExportButton_: typeof restoreExcelExportButton_ === 'function' ? restoreExcelExportButton_ : undefined,
   ensureChartJsLoaded: typeof ensureChartJsLoaded === 'function' ? ensureChartJsLoaded : undefined,
+  normalizeBusinessStatusLabel: typeof normalizeBusinessStatusLabel === 'function' ? normalizeBusinessStatusLabel : undefined,
+  countByBusinessStatus: typeof countByBusinessStatus === 'function' ? countByBusinessStatus : undefined,
   countByField: typeof countByField === 'function' ? countByField : undefined,
   countByMultiField: typeof countByMultiField === 'function' ? countByMultiField : undefined,
   createDoughnutChart: typeof createDoughnutChart === 'function' ? createDoughnutChart : undefined,

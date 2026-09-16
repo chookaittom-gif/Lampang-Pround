@@ -378,7 +378,7 @@ export async function exportShopPdfNative(
   const isPremium = shop.InProject === true || shop.InProject === 1 || shop.InProject === '1';
   const bizRows: [string, string][] = [];
   if (isPremium) {
-    bizRows.push(['ร้านค้าในโครงการ', '⭐ Premium (Lampang Proud)']);
+    bizRows.push(['ร้านค้าในโครงการ', '⭐ Premium (Lampang Pround)']);
   }
   bizRows.push(
     ['ประเภทธุรกิจ', display(shop.BusinessType)],
