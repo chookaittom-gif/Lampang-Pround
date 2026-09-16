@@ -4688,6 +4688,25 @@
     return counts;
   }
 
+  function countByBusinessLevel(records) {
+    var counts = {};
+    records.forEach(function(item) {
+      var raw = (item.BusinessLevel || '').toString().trim();
+      if (!raw || raw === '-') {
+        counts['ไม่ระบุ'] = (counts['ไม่ระบุ'] || 0) + 1;
+      } else if (raw === 'Micro SME' || raw.toLowerCase() === 'micro') {
+        counts['Micro SME'] = (counts['Micro SME'] || 0) + 1;
+      } else if (raw === 'Small SME' || raw === 'S' || raw.toLowerCase() === 'small') {
+        counts['Small SME'] = (counts['Small SME'] || 0) + 1;
+      } else if (raw === 'Medium SME' || raw === 'M' || raw.toLowerCase() === 'medium') {
+        counts['Medium SME'] = (counts['Medium SME'] || 0) + 1;
+      } else {
+        counts['อื่น'] = (counts['อื่น'] || 0) + 1;
+      }
+    });
+    return counts;
+  }
+
   function countByField(records, field) {
     var counts = {};
     records.forEach(function(item) {
@@ -4804,7 +4823,7 @@
 
     var typeCounts = countByField(recordsData, 'BusinessType');
     var statusCounts = countByBusinessStatus(recordsData);
-    var levelCounts = countByField(recordsData, 'BusinessLevel');
+    var levelCounts = countByBusinessLevel(recordsData);
     var potentialCounts = countByField(recordsData, 'PotentialLevel');
     var channelCounts = countByMultiField(recordsData, 'SalesChannel');
     var catCounts = countByMultiField(recordsData, 'ProductCategory');
