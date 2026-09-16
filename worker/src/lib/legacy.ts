@@ -31,6 +31,7 @@ export interface LegacyRecordRow {
   image_activity_ref: string;
   note: string;
   shop_history: string;
+  in_project?: number | string | boolean | null;
   created_at: string;
   created_by: string;
   is_deleted: string;
@@ -67,6 +68,10 @@ export function legacyRecordToApi(
     SupportNeeded: row.support_needed,
     Note: row.note,
     ShopHistory: row.shop_history,
+    InProject:
+      row.in_project === null || row.in_project === undefined || row.in_project === ''
+        ? null
+        : (row.in_project === 1 || row.in_project === '1' || row.in_project === true),
     CreatedAt: thaiBuddhistDate(row.created_at),
     CreatedBy: row.created_by,
     IsDeleted: row.is_deleted,
@@ -121,6 +126,10 @@ export function shopRowToApi(row: Record<string, unknown>): Record<string, unkno
     SupportNeeded: row.support_needed ?? '',
     Note: row.note ?? '',
     ShopHistory: row.shop_history ?? '',
+    InProject:
+      row.in_project === null || row.in_project === undefined || row.in_project === ''
+        ? null
+        : (row.in_project === 1 || row.in_project === '1' || row.in_project === true),
     CreatedAt: row.created_at ?? '',
     CreatedBy: row.created_by ?? '',
     UpdatedAt: row.updated_at ?? '',
@@ -215,6 +224,7 @@ export const UPDATE_FIELD_MAP: Record<string, string> = {
   ImageActivity: 'image_activity',
   Note: 'note',
   ShopHistory: 'shop_history',
+  InProject: 'in_project',
 };
 
 export const UPDATE_SKIP_FIELDS = [

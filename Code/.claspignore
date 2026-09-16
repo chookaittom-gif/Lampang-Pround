@@ -1,0 +1,9 @@
+*
+.codex-backups/**
+tailwind.config.js
+tailwind.input.css
+!Code.gs
+!index.html
+!javascript.html
+!style.html
+!appsscript.json

@@ -23,7 +23,7 @@ const LEGACY_COLS = `
   website, location_text, latitude, longitude, business_type, product_category,
   business_level, main_products, production_capacity, sales_channel, avg_price,
   business_status, potential_level, issues, support_needed, image_shop_ref,
-  image_product_ref, image_activity_ref, note, shop_history, created_at,
+  image_product_ref, image_activity_ref, note, shop_history, in_project, created_at,
   created_by, is_deleted, deleted_at, deleted_by`;
 
 interface LegacyRowRaw {
@@ -283,15 +283,21 @@ export async function handleSaveRecord(request: Request, env: Env): Promise<Resp
     const imageProduct = await resolveImageRef(env, backendId, dataObj.image_product, 'image_product');
     const imageActivity = await resolveImageRef(env, backendId, dataObj.image_activity, 'image_activity');
 
+    const inProjectRaw = dataObj.in_project !== undefined ? dataObj.in_project : dataObj.InProject;
+    const inProject =
+      inProjectRaw !== undefined && inProjectRaw !== null && inProjectRaw !== ''
+        ? (inProjectRaw === 1 || inProjectRaw === '1' || inProjectRaw === true ? 1 : 0)
+        : null;
+
     const insertRecord = env.DB.prepare(
       `INSERT INTO legacy_records (
         backend_id, lampround_id, business_name, owner_name, phone, line_id, facebook,
         website, location_text, latitude, longitude, business_type, product_category,
         business_level, main_products, production_capacity, sales_channel, avg_price,
         business_status, potential_level, issues, support_needed, image_shop_ref,
-        image_product_ref, image_activity_ref, note, shop_history, created_at, created_by,
+        image_product_ref, image_activity_ref, note, shop_history, in_project, created_at, created_by,
         is_deleted, deleted_at, deleted_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'FALSE', '', '')`
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'FALSE', '', '')`
     ).bind(
       backendId,
       lamproundId,
@@ -320,6 +326,7 @@ export async function handleSaveRecord(request: Request, env: Env): Promise<Resp
       imageActivity,
       str(dataObj.note),
       str(dataObj.shop_history ?? dataObj.shopHistory).trim(),
+      inProject,
       now,
       createdBy
     );
@@ -548,6 +555,11 @@ export async function handleUpdateRecord(request: Request, env: Env): Promise<Re
       updates.AvgPrice = productSummary.avgPrice;
     }
 
+    const inProjectRaw = dataObj.in_project !== undefined ? dataObj.in_project : dataObj.InProject;
+    const nextInProject = inProjectRaw !== undefined
+      ? (inProjectRaw === null || inProjectRaw === '' ? null : (inProjectRaw === 1 || inProjectRaw === '1' || inProjectRaw === true ? 1 : 0))
+      : (existing.in_project !== undefined && existing.in_project !== null && existing.in_project !== '' ? (existing.in_project === 1 || existing.in_project === '1' || existing.in_project === true ? 1 : 0) : null);
+
     const statements = [
       env.DB.prepare(
         `UPDATE legacy_records SET
@@ -556,7 +568,7 @@ export async function handleUpdateRecord(request: Request, env: Env): Promise<Re
          product_category = ?, business_level = ?, main_products = ?,
          production_capacity = ?, sales_channel = ?, avg_price = ?, business_status = ?,
          potential_level = ?, issues = ?, support_needed = ?, image_shop_ref = ?,
-         image_product_ref = ?, image_activity_ref = ?, note = ?, shop_history = ?
+         image_product_ref = ?, image_activity_ref = ?, note = ?, shop_history = ?, in_project = ?
          WHERE backend_id = ?`
       ).bind(
         updates.BusinessName,
@@ -584,6 +596,7 @@ export async function handleUpdateRecord(request: Request, env: Env): Promise<Re
         updates.ImageActivity,
         updates.Note,
         updates.ShopHistory,
+        nextInProject,
         backendId
       ),
     ];
@@ -654,6 +667,7 @@ function columnOf(header: string): string {
     SupportNeeded: 'support_needed',
     Note: 'note',
     ShopHistory: 'shop_history',
+    InProject: 'in_project',
   };
   return map[header];
 }

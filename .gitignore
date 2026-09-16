@@ -24,3 +24,12 @@ worker/.wrangler-test-state/
 /.windsurf/
 /.scratch/
 /.ignore
+Code/.agent/
+Code/.agents/
+Code/.codex-backups/
+Code/.cursor/
+Code/.gemini/
+Code/.kiro/
+Code/.windsurf/
+Code/.scratch/
+Code/.ignore

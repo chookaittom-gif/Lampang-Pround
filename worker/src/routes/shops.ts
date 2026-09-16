@@ -112,6 +112,21 @@ export async function handleUpsertShopRecord(request: Request, env: Env): Promis
       support_needed: pick(payload, existing, 'support_needed', 'supportNeeded', 'SupportNeeded'),
       note: pick(payload, existing, 'note', 'Note'),
       shop_history: pick(payload, existing, 'shop_history', 'shopHistory', 'ShopHistory').trim(),
+      in_project: (() => {
+        const raw =
+          payload.in_project !== undefined
+            ? payload.in_project
+            : payload.inProject !== undefined
+              ? payload.inProject
+              : payload.InProject;
+        if (raw !== undefined) {
+          return raw === null || raw === '' ? null : (raw === 1 || raw === '1' || raw === true ? 1 : 0);
+        }
+        if (existing && 'in_project' in existing && existing.in_project !== undefined && existing.in_project !== null && existing.in_project !== '') {
+          return existing.in_project === 1 || existing.in_project === '1' || existing.in_project === true ? 1 : 0;
+        }
+        return null;
+      })(),
     };
 
     const statement = existing
@@ -122,7 +137,7 @@ export async function handleUpsertShopRecord(request: Request, env: Env): Promis
            product_category = ?, business_level = ?, main_products = ?,
            production_capacity = ?, sales_channel = ?, avg_price = ?, business_status = ?,
            potential_level = ?, issues = ?, support_needed = ?, note = ?, shop_history = ?,
-           updated_at = ?, updated_by = ? WHERE shop_id = ?`
+           in_project = ?, updated_at = ?, updated_by = ? WHERE shop_id = ?`
         ).bind(
           values.legacy_backend_id,
           values.legacy_lampround_id,
@@ -148,6 +163,7 @@ export async function handleUpsertShopRecord(request: Request, env: Env): Promis
           values.support_needed,
           values.note,
           values.shop_history,
+          values.in_project,
           now,
           createdBy,
           shopId
@@ -158,8 +174,8 @@ export async function handleUpsertShopRecord(request: Request, env: Env): Promis
            latitude, longitude, business_type, product_category, business_level,
            main_products, production_capacity, sales_channel, avg_price, business_status,
            potential_level, issues, support_needed, note, shop_history,
-           created_at, created_by, updated_at, updated_by, is_deleted)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'FALSE')`
+           in_project, created_at, created_by, updated_at, updated_by, is_deleted)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'FALSE')`
         ).bind(
           values.shop_id,
           values.legacy_backend_id,
@@ -186,6 +202,7 @@ export async function handleUpsertShopRecord(request: Request, env: Env): Promis
           values.support_needed,
           values.note,
           values.shop_history,
+          values.in_project,
           now,
           createdBy,
           now,

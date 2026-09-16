@@ -36,10 +36,6 @@ binding = "DB"
 database_name = "lampang-pround"
 database_id = "TODO_LOCAL_D1_ID"
 
-[[r2_buckets]]
-binding = "ASSETS"
-bucket_name = "lampang-pround-assets"
-
 [env.staging]
 name = "lampang-pround-staging"
 
@@ -57,10 +53,6 @@ DEV_ALLOWED_ORIGIN = ""
 binding = "DB"
 database_name = "lampang-pround-staging"
 database_id = "TODO_STAGING_D1_ID"
-
-[[env.staging.r2_buckets]]
-binding = "ASSETS"
-bucket_name = "lampang-pround-assets-staging"
 
 [env.production]
 name = "lampang-pround"

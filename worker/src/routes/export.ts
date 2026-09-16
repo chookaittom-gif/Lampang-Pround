@@ -118,7 +118,8 @@ const EXCEL_HEADERS = [
   'ช่องทางติดต่อ',
   'ที่อยู่',
   'ราคาเฉลี่ย',
-  'ช่องทางจำหน่าย',
+  'หมวดหมู่สินค้า/บริการ',
+  'ร้านค้าในโครงการ',
 ];
 
 interface ExportRow {
@@ -130,7 +131,8 @@ interface ExportRow {
   website: string;
   location_text: string;
   avg_price: string;
-  sales_channel: string;
+  product_category: string;
+  in_project: number | null;
   _rid?: number;
 }
 
@@ -179,7 +181,7 @@ async function buildExcelWorkbook(
       const placeholders = chunk.map(() => '?').join(', ');
       const chunkRows = await env.DB.prepare(
         `SELECT rowid AS _rid, business_name, owner_name, phone, line_id, facebook, website,
-         location_text, avg_price, sales_channel FROM legacy_records
+         location_text, avg_price, product_category, in_project FROM legacy_records
          WHERE UPPER(TRIM(is_deleted)) != 'TRUE' AND backend_id IN (${placeholders})${ownershipClause} ORDER BY rowid`
       )
         .bind(...chunk, ...ownershipParam)
@@ -192,7 +194,7 @@ async function buildExcelWorkbook(
   } else {
     rows = await env.DB.prepare(
       `SELECT business_name, owner_name, phone, line_id, facebook, website,
-       location_text, avg_price, sales_channel FROM legacy_records
+       location_text, avg_price, product_category, in_project FROM legacy_records
        WHERE UPPER(TRIM(is_deleted)) != 'TRUE'${ownershipClause} ORDER BY rowid`
     )
       .bind(...ownershipParam)
@@ -213,12 +215,13 @@ async function buildExcelWorkbook(
     };
   });
   // ความกว้างคอลัมน์ (หน่วยตัวอักษร) รวมพอดี A4 แนวนอน + ตัดคำขึ้นบรรทัดใหม่
-  [7, 30, 22, 16, 24, 30, 13, 20].forEach((width, i) => {
+  [7, 30, 22, 16, 24, 30, 13, 24, 18].forEach((width, i) => {
     sheet.getColumn(i + 1).width = width;
   });
 
   rows.forEach((row, index) => {
-    const salesChannels = parseJsonArray(row.sales_channel).join(', ');
+    const productCategories = parseJsonArray(row.product_category).join(', ');
+    const inProject = row.in_project === 1 ? '✓' : '';
     const added = sheet.addRow([
       index + 1,
       row.business_name || '',
@@ -227,11 +230,16 @@ async function buildExcelWorkbook(
       buildContactCell(row),
       row.location_text || '',
       row.avg_price || '',
-      salesChannels || '-',
+      productCategories || '-',
+      inProject,
     ]);
-    added.eachCell((cell) => {
+    added.eachCell((cell, colNumber) => {
       cell.font = { name: 'Sarabun', size: 10 };
-      cell.alignment = { vertical: 'middle', wrapText: true };
+      cell.alignment = {
+        vertical: 'middle',
+        horizontal: colNumber === 1 || colNumber === 9 ? 'center' : 'left',
+        wrapText: true,
+      };
       cell.border = {
         top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
         left: { style: 'thin', color: { argb: 'FFCBD5E1' } },

@@ -124,6 +124,7 @@ async function loadPdfData(env: Env, backendId: string): Promise<PdfShopData | n
     AvgPrice: legacy.avg_price,
     BusinessStatus: legacy.business_status,
     PotentialLevel: legacy.potential_level,
+    InProject: legacy.in_project === 1 ? true : legacy.in_project === 0 ? false : null,
   };
 
   // การตัดสินใจร่วม (Q6=ก): Shops row เป็นหลักเหมือน GAS — ถ้า row มี master data
@@ -147,13 +148,14 @@ async function loadPdfData(env: Env, backendId: string): Promise<PdfShopData | n
       AvgPrice: shopRow.avg_price,
       BusinessStatus: shopRow.business_status,
       PotentialLevel: shopRow.potential_level,
+      InProject: shopRow.in_project === 1 ? true : shopRow.in_project === 0 ? false : legacyShop.InProject,
     };
     const hasMasterData = Object.values(rowShop).some(
       (v) => String(v ?? '').trim() !== ''
     );
     if (!hasMasterData) {
       for (const key of Object.keys(rowShop)) {
-        if (String(rowShop[key] ?? '').trim() === '') {
+        if (rowShop[key] === undefined || rowShop[key] === null || String(rowShop[key] ?? '').trim() === '') {
           rowShop[key] = legacyShop[key];
         }
       }
@@ -373,18 +375,25 @@ export async function exportShopPdfNative(
     ['ประวัติร้านค้า', display(shop.ShopHistory)],
   ]);
 
-  drawSectionHeading('ข้อมูลธุรกิจ');
-  drawLabelValueTable([
+  const isPremium = shop.InProject === true || shop.InProject === 1 || shop.InProject === '1';
+  const bizRows: [string, string][] = [];
+  if (isPremium) {
+    bizRows.push(['ร้านค้าในโครงการ', '⭐ Premium (Lampang Proud)']);
+  }
+  bizRows.push(
     ['ประเภทธุรกิจ', display(shop.BusinessType)],
     ['หมวดหมู่สินค้า', display(productCategory)],
-    ['ระดับธุรกิจ', display(shop.BusinessLevel)],
+    ['ขนาดวิสาหกิจ', display(shop.BusinessLevel)],
     ['ช่องทางจำหน่าย', display(salesChannel)],
     ['ราคาเฉลี่ย', display(shop.AvgPrice)],
     ['สถานะธุรกิจ', display(shop.BusinessStatus)],
     ['ระดับศักยภาพ', display(shop.PotentialLevel)],
     ['จำนวนสินค้า', String(data.products.length)],
-    ['จำนวนรูปภาพ', String(data.gallery.length)],
-  ]);
+    ['จำนวนรูปภาพ', String(data.gallery.length)]
+  );
+
+  drawSectionHeading('ข้อมูลธุรกิจ');
+  drawLabelValueTable(bizRows);
 
   // ── Products table (replaceProductsTable_: 6 แถว/หน้า, header ตรงบรรทัด 2632) ──
   // ลำดับคอลัมน์: ลำดับ | รูปภาพ | ชื่อสินค้า | หมวดหมู่ | รายละเอียด | ราคา

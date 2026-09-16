@@ -12,6 +12,8 @@
   let filteredRecordsData = [];
   let listSearchQuery = '';
   let listAmphoeFilter = '';
+  let listCategoryFilter = '';
+  let listPremiumFilter = false;
   let _listExcelExportBusy = false;
   let currentPage = 1;
   let currentPageSize = getItemsPerPage();
@@ -3157,8 +3159,12 @@
     return String(listAmphoeFilter || '').trim();
   }
 
+  function getNormalizedCategoryFilter() {
+    return String(listCategoryFilter || '').trim();
+  }
+
   function hasActiveListFilter() {
-    return !!getNormalizedSearchQuery() || !!getNormalizedAmphoeFilter();
+    return !!getNormalizedSearchQuery() || !!getNormalizedAmphoeFilter() || !!getNormalizedCategoryFilter() || listPremiumFilter;
   }
 
   function matchesRecordSearch(item, normalizedQuery) {
@@ -3180,18 +3186,41 @@
     return parseAmphoeFromLocation(item && item.LocationText) === amphoeFilter;
   }
 
+  function matchesRecordCategory(item, categoryFilter) {
+    if (!categoryFilter) return true;
+    var raw = item && (item.ProductCategory || item.productCategory);
+    if (!raw) return false;
+    return String(raw).indexOf(categoryFilter) !== -1;
+  }
+
+  function matchesRecordPremium(item, premiumFilter) {
+    if (!premiumFilter) return true;
+    return item && (item.InProject === true || item.InProject === 1 || item.InProject === '1');
+  }
+
   function updateSearchUi() {
     const input = document.getElementById('list-search-input');
     const clearBtn = document.getElementById('list-search-clear');
     const amphoeSelect = document.getElementById('list-amphoe-filter');
+    const categorySelect = document.getElementById('list-category-filter');
+    const premiumBtn = document.getElementById('list-premium-filter-btn');
     const summary = document.getElementById('list-search-summary');
     const normalizedQuery = getNormalizedSearchQuery();
     const amphoeFilter = getNormalizedAmphoeFilter();
+    const categoryFilter = getNormalizedCategoryFilter();
     const totalCount = recordsData.length;
     const filteredCount = filteredRecordsData.length;
 
     if (input && input.value !== listSearchQuery) input.value = listSearchQuery;
     if (amphoeSelect && amphoeSelect.value !== listAmphoeFilter) amphoeSelect.value = listAmphoeFilter;
+    if (categorySelect && categorySelect.value !== listCategoryFilter) categorySelect.value = listCategoryFilter;
+    if (premiumBtn) {
+      if (listPremiumFilter) {
+        premiumBtn.className = 'w-full h-full min-h-[44px] px-3 py-2 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 bg-gradient-to-r from-amber-500 to-amber-400 text-white border-amber-500 shadow-md shadow-amber-200';
+      } else {
+        premiumBtn.className = 'w-full h-full min-h-[44px] px-3 py-2 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 bg-white text-slate-600 border-slate-200 hover:border-amber-300 hover:bg-amber-50 shadow-sm';
+      }
+    }
     if (clearBtn) {
       if (normalizedQuery) {
         clearBtn.classList.remove('hidden');
@@ -3203,12 +3232,14 @@
     }
 
     if (summary) {
-      if (!normalizedQuery && !amphoeFilter) {
+      if (!normalizedQuery && !amphoeFilter && !categoryFilter && !listPremiumFilter) {
         summary.textContent = 'แสดงข้อมูลทั้งหมด ' + totalCount + ' รายการ';
       } else {
         var parts = ['พบ ' + filteredCount + ' จาก ' + totalCount + ' รายการ'];
         if (normalizedQuery) parts.push('สำหรับ "' + listSearchQuery.trim() + '"');
         if (amphoeFilter) parts.push('ในอำเภอ ' + amphoeFilter);
+        if (categoryFilter) parts.push('หมวด ' + categoryFilter);
+        if (listPremiumFilter) parts.push('เฉพาะ Premium');
         summary.textContent = parts.join(' ');
       }
     }
@@ -3217,10 +3248,15 @@
   function applySearchFilter(resetPage) {
     const normalizedQuery = getNormalizedSearchQuery();
     const amphoeFilter = getNormalizedAmphoeFilter();
-    filteredRecordsData = (!normalizedQuery && !amphoeFilter)
+    const categoryFilter = getNormalizedCategoryFilter();
+    const premiumFilter = listPremiumFilter;
+    filteredRecordsData = (!normalizedQuery && !amphoeFilter && !categoryFilter && !premiumFilter)
       ? recordsData.slice()
       : recordsData.filter(function(item) {
-          return matchesRecordSearch(item, normalizedQuery) && matchesRecordAmphoe(item, amphoeFilter);
+          return matchesRecordSearch(item, normalizedQuery) &&
+                 matchesRecordAmphoe(item, amphoeFilter) &&
+                 matchesRecordCategory(item, categoryFilter) &&
+                 matchesRecordPremium(item, premiumFilter);
         });
 
     if (resetPage !== false) currentPage = 1;
@@ -3234,7 +3270,17 @@
   }
 
   function handleAmphoeFilterChange(event) {
-    listAmphoeFilter = event && event.target ? event.target.value : '';
+    listAmphoeFilter = event && event.target ? event.target.value : (typeof event === 'string' ? event : '');
+    applySearchFilter(true);
+  }
+
+  function handleCategoryFilterChange(event) {
+    listCategoryFilter = event && event.target ? event.target.value : (typeof event === 'string' ? event : '');
+    applySearchFilter(true);
+  }
+
+  function togglePremiumFilter() {
+    listPremiumFilter = !listPremiumFilter;
     applySearchFilter(true);
   }
 
@@ -3294,6 +3340,7 @@
                 <i data-lucide="hash" class="w-3 h-3"></i>
                 ${escapeHtml(item.LamproundID || 'ไม่มีรหัส')}
               </span>
+              ${(item.InProject === true || item.InProject === 1 || item.InProject === '1') ? `<span class="inline-flex items-center gap-1 px-2.5 py-1 bg-gradient-to-r from-amber-500 to-amber-400 text-white text-xs font-bold rounded-lg mb-2 ml-1.5 shadow-sm shadow-amber-200">⭐ Premium</span>` : ''}
               <h3 class="font-bold text-slate-800 line-clamp-1 text-base">${escapeHtml(item.BusinessName || '-')}</h3>
             </div>
             ${canEditRecord(item) ? `<button type="button" onclick="event.stopPropagation(); openEditModal(${index})" class="inline-flex items-center justify-center w-11 h-11 text-blue-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-colors shrink-0" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button>` : ''}
@@ -3420,18 +3467,6 @@
     if (!p) return true;
     var lower = p.toLowerCase();
     return lower === 'product' || lower === 'shop' || lower === 'activity' || lower === 'gallery';
-  }
-
-  // รูปปกประจำสินค้า = แถว role product/gallery ที่ผูก ProductID ตรงกับสินค้าที่มีอยู่จริง
-  // (แถวสินค้าโชว์รูปนี้แล้ว อัลบั้มจึงไม่ต้องโชว์ซ้ำ — แถวเก่าที่ product_id ว่างยังอยู่ในอัลบั้มเหมือนเดิม)
-  function isProductCoverImage_(g, products) {
-    if (!isGalleryRoleProductLike_(g)) return false;
-    var gid = String(g && g.ProductID || '').trim();
-    if (isUnlinkedGalleryProductId_(gid)) return false;
-    if (!Array.isArray(products)) return false;
-    return products.some(function(p) {
-      return String((p && (p.ProductID || p.product_id)) || '').trim() === gid;
-    });
   }
 
   function findProductGalleryImageUrl(product, gallery, productIndexInShopProducts, sizeKey) {
@@ -3774,11 +3809,10 @@
       + '</div>';
   }
 
-  function renderGalleryPhotos(gallery, products) {
+  function renderGalleryPhotos(gallery) {
     var items = Array.isArray(gallery) ? gallery.slice() : [];
     var shopImgs     = items.filter(function(g){ return String(g.ImageRole||'').trim().toLowerCase() === 'shop'; }).slice(0, 3);
-    // อัลบั้มไม่รวมรูปปกประจำสินค้า (แถวสินค้าโชว์รูปของตัวเองอยู่แล้ว)
-    var productImgs  = items.filter(function(g){ return isGalleryRoleProductLike_(g) && !isProductCoverImage_(g, products); });
+    var productImgs  = items.filter(isGalleryRoleProductLike_);
     var activityImgs = items.filter(function(g){ return String(g.ImageRole||'').trim().toLowerCase() === 'activity'; }).slice(0, 3);
 
     function renderRolePhotoBlock(container, title, accent, roleItems) {
@@ -3804,13 +3838,8 @@
     var productCont  = document.getElementById('detail-photo-product-container');
     var productBadge = document.getElementById('detail-photo-product-badge');
     if (productBadge) productBadge.textContent = 'Album (' + productImgs.length + ')';
-    if (productCont) {
-      if (productImgs.length > 0) {
-        productCont.innerHTML = '<div class="grid grid-cols-2 sm:grid-cols-3 gap-2">' + productImgs.map(buildGalleryAlbumCard).join('') + '</div>';
-      } else {
-        // ไม่มีรูปแกลเลอรีแยก (มีแต่รูปปกสินค้า) → โชว์ empty state แทนของเก่าค้าง
-        productCont.innerHTML = buildImagePlaceholder('แกลเลอรีสินค้า');
-      }
+    if (productCont && productImgs.length > 0) {
+      productCont.innerHTML = '<div class="grid grid-cols-2 sm:grid-cols-3 gap-2">' + productImgs.map(buildGalleryAlbumCard).join('') + '</div>';
     }
 
     // Activity photo (1 image) — only override if gallery has an image
@@ -3949,7 +3978,7 @@
     var hasLegacyProductImage = formatDetailValue(item.ImageProduct) !== '-';
     var hasLegacyActivityImage = formatDetailValue(item.ImageActivity) !== '-';
     var shopGalleryCount = galleryItems.filter(function(g) { return String(g.ImageRole || '').trim().toLowerCase() === 'shop'; }).length || (hasLegacyShopImage ? 1 : 0);
-    var productGalleryCount = galleryItems.filter(function(g) { return isGalleryRoleProductLike_(g) && !isProductCoverImage_(g, _pdProducts); }).length || (hasLegacyProductImage ? 1 : 0);
+    var productGalleryCount = galleryItems.filter(isGalleryRoleProductLike_).length || (hasLegacyProductImage ? 1 : 0);
     var activityGalleryCount = galleryItems.filter(function(g) { return String(g.ImageRole || '').trim().toLowerCase() === 'activity'; }).length || (hasLegacyActivityImage ? 1 : 0);
     const body = document.getElementById('detail-body');
     
@@ -4019,6 +4048,7 @@
               ${buildDetailField('รหัสรายการ', item.LamproundID, 'blue', 'คัดลอกรหัสรายการ')}
               ${buildDetailField('ชื่อผู้ประกอบการ / ร้านค้า', item.BusinessName, 'sky')}
               ${buildDetailField('ชื่อเจ้าของ', item.OwnerName, 'violet')}
+              ${buildDetailField('ร้านค้าในโครงการ', (item.InProject === true || item.InProject === 1 || item.InProject === '1') ? '⭐ อยู่ในโครงการ (Premium)' : (item.InProject === false || item.InProject === 0 || item.InProject === '0') ? 'ไม่อยู่ในโครงการ' : 'ยังไม่ระบุ', (item.InProject === true || item.InProject === 1 || item.InProject === '1') ? 'amber' : 'blue')}
               ${buildDetailField('วันที่บันทึก', item.CreatedAt, 'amber')}
               ${formatDetailValue(item.LineID) !== '-' ? buildDetailField('Line ID', item.LineID, 'emerald', 'คัดลอก Line ID') : ''}
               ${formatDetailValue(item.Facebook) !== '-' ? buildLinkField('Facebook', item.Facebook, 'facebook') : ''}
@@ -4242,7 +4272,7 @@
       _pdShopItem = record || _pdShopItem;
       _pdProducts = Array.isArray(record.products) ? record.products : [];
       if (Array.isArray(record.gallery) && record.gallery.length > 0) {
-        renderGalleryPhotos(record.gallery, record.products);
+        renderGalleryPhotos(record.gallery);
       }
       var prodSection = document.getElementById('detail-products-section');
       if (prodSection) {
@@ -4471,9 +4501,11 @@
     }
 
     try {
-      var headers = ['รหัส', 'ชื่อร้าน', 'เจ้าของ', 'โทร', 'อำเภอ', 'ที่อยู่', 'ประเภทธุรกิจ', 'สถานะ', 'วันที่', 'ประวัติร้านค้า'];
+      var headers = ['รหัส', 'ชื่อร้าน', 'เจ้าของ', 'โทร', 'อำเภอ', 'ที่อยู่', 'ประเภทธุรกิจ', 'หมวดหมู่สินค้า/บริการ', 'ร้านค้าในโครงการ', 'สถานะ', 'วันที่', 'ประวัติร้านค้า'];
       var aoa = [headers];
       rows.forEach(function(item) {
+        var productCategories = String(item.ProductCategory || item.productCategory || '');
+        var inProject = (item.InProject === true || item.InProject === 1 || item.InProject === '1') ? '✓' : '';
         aoa.push([
           item.LamproundID || '',
           item.BusinessName || '',
@@ -4482,6 +4514,8 @@
           parseAmphoeFromLocation(item.LocationText),
           item.LocationText || '',
           item.BusinessType || '',
+          productCategories,
+          inProject,
           item.BusinessStatus || '',
           item.CreatedAt || '',
           item.ShopHistory || ''
@@ -4521,7 +4555,7 @@
           ws[addr].z = '@';
           if (r === 0) {
             ws[addr].s = headerStyle;
-          } else if (c === 0 || c === 3 || c === 4 || c === 8) {
+          } else if (c === 0 || c === 3 || c === 4 || c === 8 || c === 10) {
             ws[addr].s = centerStyle;
           } else {
             ws[addr].s = dataStyle;
@@ -4530,7 +4564,7 @@
       }
       ws['!cols'] = [
         { wch: 15 }, { wch: 22 }, { wch: 14 }, { wch: 12 }, { wch: 12 },
-        { wch: 28 }, { wch: 12 }, { wch: 8 }, { wch: 11 }, { wch: 30 }
+        { wch: 28 }, { wch: 12 }, { wch: 22 }, { wch: 14 }, { wch: 10 }, { wch: 11 }, { wch: 30 }
       ];
       ws['!freeze'] = { xSplit: 0, ySplit: 1, topLeftCell: 'A2', activePane: 'bottomLeft', state: 'frozen' };
       ws['!views'] = [{ state: 'frozen', ySplit: 1, topLeftCell: 'A2' }];
@@ -4780,6 +4814,8 @@
   window.goToPage = goToPage;
   window.handleSearchInput = handleSearchInput;
   window.handleAmphoeFilterChange = handleAmphoeFilterChange;
+  window.handleCategoryFilterChange = handleCategoryFilterChange;
+  window.togglePremiumFilter = togglePremiumFilter;
   window.clearSearchInput = clearSearchInput;
   window.exportFilteredListXlsx = exportFilteredListXlsx;
   window.openDetailModal = openDetailModal;
@@ -4860,6 +4896,17 @@
     });
     var phoneEl = form.querySelector('[name="phone"]');
     if (phoneEl) phoneEl.value = formatPhoneDisplayValue(item.Phone || '');
+
+    var inProjEl = form.querySelector('[name="in_project"]');
+    if (inProjEl) {
+      if (item.InProject === true || item.InProject === 1 || item.InProject === '1') {
+        inProjEl.value = '1';
+      } else if (item.InProject === false || item.InProject === 0 || item.InProject === '0') {
+        inProjEl.value = '0';
+      } else {
+        inProjEl.value = '';
+      }
+    }
 
     var mapUrlInput = document.getElementById('edit_map_url_input');
     if (mapUrlInput) {
@@ -5658,6 +5705,8 @@
   window.getEditLocation = getEditLocation;
   window.downloadExcelData = downloadExcelData;
   window.handleAmphoeFilterChange = handleAmphoeFilterChange;
+  window.handleCategoryFilterChange = handleCategoryFilterChange;
+  window.togglePremiumFilter = togglePremiumFilter;
   window.copyTextToClipboard = copyTextToClipboard;
   window.toggleMobileDetailCollapse = toggleMobileDetailCollapse;
   window.triggerSpecificGalleryPicker = triggerSpecificGalleryPicker;
@@ -5759,9 +5808,12 @@ export const __legacyGlobals = {
   parseAmphoeFromLocation: typeof parseAmphoeFromLocation === 'function' ? parseAmphoeFromLocation : undefined,
   getNormalizedSearchQuery: typeof getNormalizedSearchQuery === 'function' ? getNormalizedSearchQuery : undefined,
   getNormalizedAmphoeFilter: typeof getNormalizedAmphoeFilter === 'function' ? getNormalizedAmphoeFilter : undefined,
+  getNormalizedCategoryFilter: typeof getNormalizedCategoryFilter === 'function' ? getNormalizedCategoryFilter : undefined,
   hasActiveListFilter: typeof hasActiveListFilter === 'function' ? hasActiveListFilter : undefined,
   matchesRecordSearch: typeof matchesRecordSearch === 'function' ? matchesRecordSearch : undefined,
   matchesRecordAmphoe: typeof matchesRecordAmphoe === 'function' ? matchesRecordAmphoe : undefined,
+  matchesRecordCategory: typeof matchesRecordCategory === 'function' ? matchesRecordCategory : undefined,
+  matchesRecordPremium: typeof matchesRecordPremium === 'function' ? matchesRecordPremium : undefined,
   updateSearchUi: typeof updateSearchUi === 'function' ? updateSearchUi : undefined,
   applySearchFilter: typeof applySearchFilter === 'function' ? applySearchFilter : undefined,
   renderRecords: typeof renderRecords === 'function' ? renderRecords : undefined,
