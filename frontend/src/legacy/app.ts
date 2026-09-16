@@ -4911,7 +4911,18 @@
       var el = form.querySelector('[name="'+f+'"]');
       if (!el) return;
       var raw = item[keyMap[f]] || '';
-      el.value = (raw === '-' || raw === null || raw === undefined) ? '' : raw;
+      var val = (raw === '-' || raw === null || raw === undefined) ? '' : String(raw);
+      if (el.tagName === 'SELECT' && val) {
+        var selectEl = el;
+        var optExists = Array.prototype.slice.call(selectEl.options).some(function(opt) { return opt.value === val; });
+        if (!optExists) {
+          var opt = document.createElement('option');
+          opt.value = val;
+          opt.textContent = val;
+          selectEl.appendChild(opt);
+        }
+      }
+      el.value = val;
     });
     var phoneEl = form.querySelector('[name="phone"]');
     if (phoneEl) phoneEl.value = formatPhoneDisplayValue(item.Phone || '');
