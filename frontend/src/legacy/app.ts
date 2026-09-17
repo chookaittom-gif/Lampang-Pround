@@ -3202,23 +3202,39 @@
     return parseAmphoeFromLocation(item && item.LocationText) === amphoeFilter;
   }
 
+  function normalizeProductCategory(cat) {
+    if (!cat) return '';
+    var s = String(cat).trim();
+    if (s.indexOf('สมุนไพร') !== -1) return 'สมุนไพรที่ไม่ใช่อาหาร';
+    if (s.indexOf('ของใช้') !== -1 || s.indexOf('ของตกแต่ง') !== -1 || s.indexOf('ของที่ระลึก') !== -1) {
+      return 'ของใช้ ของตกแต่ง และของที่ระลึก';
+    }
+    if (s.indexOf('ผ้า') !== -1 || s.indexOf('แต่งกาย') !== -1) return 'ผ้าและเครื่องแต่งกาย';
+    if (s.indexOf('เครื่องดื่ม') !== -1) return 'เครื่องดื่ม';
+    if (s.indexOf('อาหาร') !== -1) return 'อาหาร';
+    return s;
+  }
+
   function matchesRecordCategory(item, categoryFilter) {
     if (!categoryFilter) return true;
+    var target = normalizeProductCategory(categoryFilter);
     var raw = item && (item.ProductCategory || item.productCategory);
     if (!raw) return false;
     var list = extractListItems(raw);
     if (list && list.length > 0) {
-      if (list.includes(categoryFilter)) return true;
+      for (var i = 0; i < list.length; i++) {
+        if (normalizeProductCategory(list[i]) === target) return true;
+      }
     }
     try {
       if (typeof raw === 'string' && (raw.indexOf('[') !== -1 || raw.indexOf('{') !== -1)) {
         var parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.some(function(c) { return String(c).trim() === categoryFilter; })) {
+        if (Array.isArray(parsed) && parsed.some(function(c) { return normalizeProductCategory(c) === target; })) {
           return true;
         }
       }
     } catch (e) {}
-    return String(raw).indexOf(categoryFilter) !== -1;
+    return normalizeProductCategory(raw) === target;
   }
 
   function matchesRecordPremium(item, premiumFilter) {
@@ -4769,9 +4785,9 @@
       var raw = item && (item.ProductCategory || item.productCategory);
       var items = extractListItems(raw);
       items.forEach(function(v) {
-        var trimmed = String(v).trim();
-        if (counts.hasOwnProperty(trimmed)) {
-          counts[trimmed] = (counts[trimmed] || 0) + 1;
+        var norm = normalizeProductCategory(v);
+        if (counts.hasOwnProperty(norm)) {
+          counts[norm] = (counts[norm] || 0) + 1;
         }
       });
     });
@@ -5931,6 +5947,7 @@ export const __legacyGlobals = {
   hasActiveListFilter: typeof hasActiveListFilter === 'function' ? hasActiveListFilter : undefined,
   matchesRecordSearch: typeof matchesRecordSearch === 'function' ? matchesRecordSearch : undefined,
   matchesRecordAmphoe: typeof matchesRecordAmphoe === 'function' ? matchesRecordAmphoe : undefined,
+  normalizeProductCategory: typeof normalizeProductCategory === 'function' ? normalizeProductCategory : undefined,
   matchesRecordCategory: typeof matchesRecordCategory === 'function' ? matchesRecordCategory : undefined,
   matchesRecordPremium: typeof matchesRecordPremium === 'function' ? matchesRecordPremium : undefined,
   updateSearchUi: typeof updateSearchUi === 'function' ? updateSearchUi : undefined,
