@@ -5027,6 +5027,9 @@
       if (!el) return;
       var raw = item[keyMap[f]] || '';
       var val = (raw === '-' || raw === null || raw === undefined) ? '' : String(raw);
+      if (f === 'business_status' && val) {
+        val = normalizeBusinessStatusLabel(val);
+      }
       if (el.tagName === 'SELECT' && val) {
         var optExists = Array.prototype.slice.call(el.options).some(function(opt) { return opt.value === val; });
         if (!optExists) {
