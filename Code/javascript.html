@@ -4862,24 +4862,103 @@
     });
   }
 
+  function formatChartAxisLabel(label) {
+    if (!label) return '';
+    var str = String(label).trim();
+    if (str === 'ของใช้ ของตกแต่ง และของที่ระลึก' || str === 'ของใช้/ของตกแต่ง/ของที่ระลึก') {
+      return ['ของใช้ ของตกแต่ง', 'และของที่ระลึก'];
+    }
+    if (str === 'ผ้าและเครื่องแต่งกาย') {
+      return ['ผ้าและ', 'เครื่องแต่งกาย'];
+    }
+    if (str === 'สมุนไพรที่ไม่ใช่อาหาร') {
+      return ['สมุนไพร', 'ที่ไม่ใช่อาหาร'];
+    }
+    if (str === 'ตัวแทนจำหน่าย') {
+      return ['ตัวแทน', 'จำหน่าย'];
+    }
+    if (str === 'Shopee/Lazada') {
+      return ['Shopee/', 'Lazada'];
+    }
+    if (str === 'กำลังพัฒนา Growth') {
+      return ['กำลังพัฒนา', 'Growth'];
+    }
+    if (str === 'เริ่มต้น Startup') {
+      return ['เริ่มต้น', 'Startup'];
+    }
+    if (str === 'มั่นคง Stable') {
+      return ['มั่นคง', 'Stable'];
+    }
+    if (str.length > 12) {
+      var slashIdx = str.indexOf('/');
+      if (slashIdx !== -1 && slashIdx > 2 && slashIdx < str.length - 2) {
+        return [str.slice(0, slashIdx + 1), str.slice(slashIdx + 1)];
+      }
+      var spaceIdx = str.indexOf(' ');
+      if (spaceIdx !== -1) {
+        return [str.slice(0, spaceIdx), str.slice(spaceIdx + 1)];
+      }
+    }
+    return str;
+  }
+
   function createBarChart(canvasId, dataObj) {
     var ctx = document.getElementById(canvasId);
     if (!ctx) return null;
-    var labels = Object.keys(dataObj);
-    var values = labels.map(function(k) { return dataObj[k]; });
+    var rawLabels = Object.keys(dataObj);
+    var formattedLabels = rawLabels.map(formatChartAxisLabel);
+    var values = rawLabels.map(function(k) { return dataObj[k]; });
     return new Chart(ctx, {
       type: 'bar',
       data: {
-        labels: labels,
-        datasets: [{ data: values, backgroundColor: DASH_COLORS.slice(0, labels.length), borderRadius: 6, borderSkipped: false, maxBarThickness: 48 }]
+        labels: formattedLabels,
+        datasets: [{
+          data: values,
+          backgroundColor: DASH_COLORS.slice(0, rawLabels.length),
+          borderRadius: 6,
+          borderSkipped: false,
+          maxBarThickness: 48
+        }]
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
+        layout: {
+          padding: { bottom: 6 }
+        },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              title: function(tooltipItems) {
+                var item = tooltipItems && tooltipItems[0];
+                if (!item) return '';
+                var idx = item.dataIndex;
+                if (typeof idx === 'number' && rawLabels[idx]) {
+                  return rawLabels[idx];
+                }
+                var lbl = item.label;
+                return Array.isArray(lbl) ? lbl.join(' ') : lbl;
+              }
+            }
+          }
+        },
         scales: {
-          y: { beginAtZero: true, ticks: { font: { family: 'Prompt', size: 11 }, stepSize: 1, precision: 0 }, grid: { color: '#f1f5f9' } },
-          x: { ticks: { font: { family: 'Prompt', size: 11 }, maxRotation: 30, autoSkipPadding: 12 }, grid: { display: false } }
+          y: {
+            beginAtZero: true,
+            ticks: { font: { family: 'Prompt', size: 11 }, stepSize: 1, precision: 0 },
+            grid: { color: '#f1f5f9' }
+          },
+          x: {
+            ticks: {
+              font: { family: 'Prompt', size: 10 },
+              autoSkip: false,
+              maxRotation: 0,
+              minRotation: 0,
+              padding: 4
+            },
+            grid: { display: false }
+          }
         }
       }
     });
