@@ -955,6 +955,10 @@
     form.addEventListener('change', function(event) {
       const target = event.target;
       if (!target || !target.name || target.type === 'file') return;
+      if (target.name === 'business_status') {
+        const err = document.getElementById('error-business-status');
+        if (err) err.style.display = 'none';
+      }
       saveFormDraft();
     });
 
@@ -2084,6 +2088,18 @@
     if (!stepEl) return true;
     let valid = true;
     stepEl.querySelectorAll('[required]').forEach(function(input) {
+      if (input.type === 'radio') {
+        const checkedRadio = stepEl.querySelector('input[name="' + input.name + '"]:checked');
+        const radioError = document.getElementById('error-' + input.name.replace(/_/g, '-')) ||
+                           document.getElementById(input.name + '-error');
+        if (!checkedRadio) {
+          valid = false;
+          if (radioError) radioError.style.display = 'block';
+        } else {
+          if (radioError) radioError.style.display = 'none';
+        }
+        return;
+      }
       const errEl = input.nextElementSibling;
       if (!input.value.trim()) {
         input.classList.add('has-error');
@@ -3190,6 +3206,18 @@
     if (!categoryFilter) return true;
     var raw = item && (item.ProductCategory || item.productCategory);
     if (!raw) return false;
+    var list = extractListItems(raw);
+    if (list && list.length > 0) {
+      if (list.includes(categoryFilter)) return true;
+    }
+    try {
+      if (typeof raw === 'string' && (raw.indexOf('[') !== -1 || raw.indexOf('{') !== -1)) {
+        var parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.some(function(c) { return String(c).trim() === categoryFilter; })) {
+          return true;
+        }
+      }
+    } catch (e) {}
     return String(raw).indexOf(categoryFilter) !== -1;
   }
 
@@ -3262,6 +3290,10 @@
     if (resetPage !== false) currentPage = 1;
     updateSearchUi();
     renderRecords();
+    var dashSec = document.getElementById('section-dashboard');
+    if (dashSec && !dashSec.classList.contains('hidden')) {
+      renderDashboard();
+    }
   }
 
   function handleSearchInput(event) {
@@ -3553,7 +3585,7 @@
     }
 
     const text = String(value ?? '').trim();
-    if (!text) return [];
+    if (!text || text === '-') return [];
 
     if (text.startsWith('[') && text.endsWith(']')) {
       try {
@@ -3564,7 +3596,11 @@
       } catch (e) {}
     }
 
-    return [];
+    if (text.indexOf(',') !== -1) {
+      return text.split(',').map(item => item.trim()).filter(Boolean);
+    }
+
+    return [text];
   }
 
   function buildDetailCopyButton(text, successLabel) {
@@ -3930,8 +3966,8 @@
 
   function buildDashboardSummary(item) {
     var stats = [
-      { icon: 'layers', label: 'ระดับธุรกิจ', value: item.BusinessLevel, bg: '#faf5ff', color: '#7c3aed' },
-      { icon: 'activity', label: 'สถานะ', value: item.BusinessStatus, bg: '#ecfdf5', color: '#059669' },
+      { icon: 'layers', label: 'ระดับธุรกิจ', value: item.BusinessLevel || 'Micro SME', bg: '#faf5ff', color: '#7c3aed' },
+      { icon: 'activity', label: 'สถานะ', value: (item.BusinessStatus ? normalizeBusinessStatusLabel(item.BusinessStatus) : 'เริ่มต้น Startup'), bg: '#ecfdf5', color: '#059669' },
       { icon: 'star', label: 'ศักยภาพ', value: item.PotentialLevel, bg: '#fffbeb', color: '#d97706' }
     ];
     var statsHtml = stats.map(function(s) {
@@ -3959,8 +3995,8 @@
 
   function buildSummaryPills(item) {
     return [
-      { label: item.BusinessStatus || 'สถานะไม่ระบุ', tone: 'detail-pill-emerald', icon: 'badge-check' },
-      { label: item.BusinessLevel || 'ระดับไม่ระบุ', tone: 'detail-pill-violet', icon: 'sparkles' },
+      { label: (item.BusinessStatus ? normalizeBusinessStatusLabel(item.BusinessStatus) : '') || 'เริ่มต้น Startup', tone: 'detail-pill-emerald', icon: 'badge-check' },
+      { label: item.BusinessLevel || 'Micro SME', tone: 'detail-pill-violet', icon: 'sparkles' },
       { label: item.PotentialLevel ? `${item.PotentialLevel} ดาว` : 'ยังไม่ประเมิน', tone: 'detail-pill-amber', icon: 'star' }
     ].map(({ label, tone, icon }) => `
       <span class="detail-modal-chip ${tone}">
@@ -4066,9 +4102,8 @@
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
               ${buildDetailField('ที่อยู่', item.LocationText, 'sky')}
-              ${buildDetailField('ประเภทธุรกิจ', item.BusinessType, 'emerald')}
               ${buildChipGroup('หมวดหมู่สินค้า/บริการ', item.ProductCategory, 'violet')}
-              ${buildDetailField('ระดับของธุรกิจ', item.BusinessLevel, 'amber')}
+              ${buildDetailField('ระดับของธุรกิจ', item.BusinessLevel || 'Micro SME', 'amber')}
               ${buildChipGroup('ช่องทางจำหน่าย', item.SalesChannel, 'emerald')}
               ${buildDetailField('ราคาเฉลี่ย', item.AvgPrice, 'rose')}
               ${hasCoords ? `
@@ -4671,7 +4706,7 @@
 
   function normalizeBusinessStatusLabel(val) {
     var raw = formatDetailValue(val);
-    if (!raw || raw === '-') return 'ไม่ระบุ';
+    if (!raw || raw === '-' || raw === 'ไม่ระบุ') return 'เริ่มต้น Startup';
     var lower = String(raw).trim().toLowerCase();
     if (lower.indexOf('มั่นคง') !== -1 || lower.indexOf('stable') !== -1) return 'มั่นคง Stable';
     if (lower.indexOf('กำลังพัฒนา') !== -1 || lower.indexOf('growth') !== -1) return 'กำลังพัฒนา Growth';
@@ -4692,9 +4727,9 @@
     var counts = {};
     records.forEach(function(item) {
       var raw = (item.BusinessLevel || '').toString().trim();
-      if (!raw || raw === '-') {
-        counts['ไม่ระบุ'] = (counts['ไม่ระบุ'] || 0) + 1;
-      } else if (raw === 'Micro SME' || raw.toLowerCase() === 'micro') {
+      if (!raw || raw === '-' || raw === 'ไม่ระบุ') {
+        counts['Micro SME'] = (counts['Micro SME'] || 0) + 1;
+      } else if (raw === 'Micro SME' || raw.toLowerCase() === 'micro' || raw.toLowerCase() === 'microsme') {
         counts['Micro SME'] = (counts['Micro SME'] || 0) + 1;
       } else if (raw === 'Small SME' || raw === 'S' || raw.toLowerCase() === 'small') {
         counts['Small SME'] = (counts['Small SME'] || 0) + 1;
@@ -4713,6 +4748,32 @@
       var val = formatDetailValue(item[field]);
       if (val === '-') val = 'ไม่ระบุ';
       counts[val] = (counts[val] || 0) + 1;
+    });
+    return counts;
+  }
+
+  var STANDARD_PRODUCT_CATEGORIES = [
+    'อาหาร',
+    'เครื่องดื่ม',
+    'ผ้าและเครื่องแต่งกาย',
+    'สมุนไพรที่ไม่ใช่อาหาร',
+    'ของใช้ ของตกแต่ง และของที่ระลึก'
+  ];
+
+  function countByProductCategory(records) {
+    var counts = {};
+    STANDARD_PRODUCT_CATEGORIES.forEach(function(cat) {
+      counts[cat] = 0;
+    });
+    records.forEach(function(item) {
+      var raw = item && (item.ProductCategory || item.productCategory);
+      var items = extractListItems(raw);
+      items.forEach(function(v) {
+        var trimmed = String(v).trim();
+        if (counts.hasOwnProperty(trimmed)) {
+          counts[trimmed] = (counts[trimmed] || 0) + 1;
+        }
+      });
     });
     return counts;
   }
@@ -4782,11 +4843,21 @@
     var errorArea = document.getElementById('dash-error');
     var renderToken = ++_dashboardRenderToken;
 
-    if (recordsData.length === 0) {
+    var targetRecords = Array.isArray(filteredRecordsData) ? filteredRecordsData : recordsData;
+
+    if (targetRecords.length === 0) {
       if (chartsArea) chartsArea.classList.add('hidden');
       if (loadingArea) loadingArea.classList.add('hidden');
       if (errorArea) errorArea.classList.add('hidden');
       if (emptyArea) emptyArea.classList.remove('hidden');
+      var kpiTotalEmpty = document.getElementById('kpi-total');
+      var kpiTypesEmpty = document.getElementById('kpi-types');
+      var kpiLevelsEmpty = document.getElementById('kpi-levels');
+      var kpiStatusesEmpty = document.getElementById('kpi-statuses');
+      if (kpiTotalEmpty) kpiTotalEmpty.textContent = '0';
+      if (kpiTypesEmpty) kpiTypesEmpty.textContent = '0';
+      if (kpiLevelsEmpty) kpiLevelsEmpty.textContent = '0';
+      if (kpiStatusesEmpty) kpiStatusesEmpty.textContent = '0';
       if (window.lucide) lucide.createIcons();
       return;
     }
@@ -4821,18 +4892,18 @@
       if (_dashCharts[k]) { _dashCharts[k].destroy(); _dashCharts[k] = null; }
     });
 
-    var typeCounts = countByField(recordsData, 'BusinessType');
-    var statusCounts = countByBusinessStatus(recordsData);
-    var levelCounts = countByBusinessLevel(recordsData);
-    var potentialCounts = countByField(recordsData, 'PotentialLevel');
-    var channelCounts = countByMultiField(recordsData, 'SalesChannel');
-    var catCounts = countByMultiField(recordsData, 'ProductCategory');
+    var typeCounts = countByField(targetRecords, 'BusinessType');
+    var statusCounts = countByBusinessStatus(targetRecords);
+    var levelCounts = countByBusinessLevel(targetRecords);
+    var potentialCounts = countByField(targetRecords, 'PotentialLevel');
+    var channelCounts = countByMultiField(targetRecords, 'SalesChannel');
+    var catCounts = countByProductCategory(targetRecords);
 
     var kpiTotal = document.getElementById('kpi-total');
     var kpiTypes = document.getElementById('kpi-types');
     var kpiLevels = document.getElementById('kpi-levels');
     var kpiStatuses = document.getElementById('kpi-statuses');
-    if (kpiTotal) kpiTotal.textContent = recordsData.length;
+    if (kpiTotal) kpiTotal.textContent = targetRecords.length;
     if (kpiTypes) kpiTypes.textContent = Object.keys(typeCounts).length;
     if (kpiLevels) kpiLevels.textContent = Object.keys(levelCounts).length;
     if (kpiStatuses) kpiStatuses.textContent = Object.keys(statusCounts).length;
@@ -4932,13 +5003,12 @@
       var raw = item[keyMap[f]] || '';
       var val = (raw === '-' || raw === null || raw === undefined) ? '' : String(raw);
       if (el.tagName === 'SELECT' && val) {
-        var selectEl = el;
-        var optExists = Array.prototype.slice.call(selectEl.options).some(function(opt) { return opt.value === val; });
+        var optExists = Array.prototype.slice.call(el.options).some(function(opt) { return opt.value === val; });
         if (!optExists) {
           var opt = document.createElement('option');
           opt.value = val;
           opt.textContent = val;
-          selectEl.appendChild(opt);
+          el.appendChild(opt);
         }
       }
       el.value = val;
@@ -5901,7 +5971,9 @@ export const __legacyGlobals = {
   ensureChartJsLoaded: typeof ensureChartJsLoaded === 'function' ? ensureChartJsLoaded : undefined,
   normalizeBusinessStatusLabel: typeof normalizeBusinessStatusLabel === 'function' ? normalizeBusinessStatusLabel : undefined,
   countByBusinessStatus: typeof countByBusinessStatus === 'function' ? countByBusinessStatus : undefined,
+  countByBusinessLevel: typeof countByBusinessLevel === 'function' ? countByBusinessLevel : undefined,
   countByField: typeof countByField === 'function' ? countByField : undefined,
+  countByProductCategory: typeof countByProductCategory === 'function' ? countByProductCategory : undefined,
   countByMultiField: typeof countByMultiField === 'function' ? countByMultiField : undefined,
   createDoughnutChart: typeof createDoughnutChart === 'function' ? createDoughnutChart : undefined,
   createBarChart: typeof createBarChart === 'function' ? createBarChart : undefined,

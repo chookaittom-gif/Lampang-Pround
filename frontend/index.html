@@ -379,19 +379,6 @@
                 </div>
               </div>
 
-              <div class="form-group">
-                <label>ประเภทธุรกิจ <span class="text-red-500">*</span></label>
-                <select name="business_type" class="form-input" required>
-                  <option value="">-- เลือกประเภทธุรกิจ --</option>
-                  <option value="ผลิตสินค้า">ผลิตสินค้า</option>
-                  <option value="บริการ">บริการ</option>
-                  <option value="ค้าปลีก/ค้าส่ง">ค้าปลีก/ค้าส่ง</option>
-                  <option value="เกษตรกรรม">เกษตรกรรม</option>
-                  <option value="อื่นๆ">อื่นๆ</option>
-                </select>
-                <div class="error-msg">กรุณาเลือกประเภทธุรกิจ</div>
-              </div>
-              
               <div>
                 <label class="block mb-2">หมวดหมู่สินค้า/บริการ (เลือกได้มากกว่า 1)</label>
                 <div class="flex flex-wrap gap-2">
@@ -493,10 +480,10 @@
             
             <div class="space-y-6">
               <div>
-                <label class="block mb-2">สถานะธุรกิจ</label>
+                <label class="block mb-2">สถานะธุรกิจ <span class="text-red-500">*</span></label>
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <label class="radio-card text-center">
-                    <input type="radio" name="business_status" value="มั่นคง Stable" class="hidden">
+                    <input type="radio" name="business_status" value="มั่นคง Stable" class="hidden" required>
                     <div class="card-content py-3">
                       <div class="font-bold">มั่นคง Stable</div>
                     </div>
@@ -514,6 +501,7 @@
                     </div>
                   </label>
                 </div>
+                <div class="error-msg" id="error-business-status">กรุณาเลือกสถานะธุรกิจ</div>
               </div>
 
               <div>
@@ -1063,18 +1051,23 @@
             <div class="p-4 rounded-xl bg-emerald-50 border border-emerald-100">
               <h4 class="text-sm font-semibold text-emerald-700 mb-3 flex items-center gap-2"><i data-lucide="briefcase" class="w-4 h-4"></i>ข้อมูลธุรกิจ</h4>
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div class="form-group"><label>ประเภทธุรกิจ</label><input type="text" name="business_type" class="form-input"></div>
                 <div class="form-group">
                   <label>ขนาดวิสาหกิจ</label>
                   <select name="business_level" class="form-input">
-                    <option value="">-- ไม่ระบุ --</option>
                     <option value="Micro SME">Micro SME</option>
                     <option value="Small SME">Small SME</option>
                     <option value="Medium SME">Medium SME</option>
                     <option value="อื่น">อื่น</option>
                   </select>
                 </div>
-                <div class="form-group"><label>สถานะธุรกิจ</label><input type="text" name="business_status" class="form-input"></div>
+                <div class="form-group">
+                  <label>สถานะธุรกิจ</label>
+                  <select name="business_status" class="form-input">
+                    <option value="มั่นคง Stable">มั่นคง Stable</option>
+                    <option value="กำลังพัฒนา Growth">กำลังพัฒนา Growth</option>
+                    <option value="เริ่มต้น Startup">เริ่มต้น Startup</option>
+                  </select>
+                </div>
                 <div class="form-group"><label>ระดับศักยภาพ (1-5)</label><input type="text" name="potential_level" class="form-input" placeholder="1-5"></div>
                 <div class="form-group sm:col-span-2">
                   <label>ร้านค้าในโครงการ Lampang Pround</label>
