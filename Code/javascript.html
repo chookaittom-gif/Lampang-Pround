@@ -953,6 +953,10 @@
         const err = document.getElementById('error-business-status');
         if (err) err.style.display = 'none';
       }
+      if (target.name === 'sales_channel') {
+        const err = document.getElementById('error-sales-channel');
+        if (err) err.style.display = 'none';
+      }
       saveFormDraft();
     });
 
@@ -2110,6 +2114,17 @@
       if (digits.length < 9 || digits.length > 10) {
         phoneInput.classList.add('has-error');
         valid = false;
+      }
+    }
+    // Sales channel validation (Step 2)
+    if (step === 2) {
+      const checkedChannels = stepEl.querySelectorAll('input[name="sales_channel"]:checked');
+      const channelError = document.getElementById('error-sales-channel');
+      if (!checkedChannels || checkedChannels.length === 0) {
+        valid = false;
+        if (channelError) channelError.style.display = 'block';
+      } else {
+        if (channelError) channelError.style.display = 'none';
       }
     }
     return valid;

@@ -459,7 +459,7 @@
               </div>
 
               <div>
-                <label class="block mb-2">ช่องทางการจัดจำหน่าย</label>
+                <label class="block mb-2">ช่องทางการจัดจำหน่าย <span class="text-red-500">*</span></label>
                 <div class="flex flex-wrap gap-2">
                   <label class="chip"><input type="checkbox" name="sales_channel" value="หน้าร้าน"><span>หน้าร้าน</span></label>
                   <label class="chip"><input type="checkbox" name="sales_channel" value="Facebook"><span>Facebook</span></label>
@@ -468,6 +468,7 @@
                   <label class="chip"><input type="checkbox" name="sales_channel" value="Line OA"><span>Line OA</span></label>
                   <label class="chip"><input type="checkbox" name="sales_channel" value="ตัวแทนจำหน่าย"><span>ตัวแทนจำหน่าย</span></label>
                 </div>
+                <div class="error-msg" id="error-sales-channel" style="position:static;display:none;margin-top:0.5rem;">กรุณาเลือกช่องทางการจัดจำหน่ายอย่างน้อย 1 ช่องทาง</div>
               </div>
 
             </div>
