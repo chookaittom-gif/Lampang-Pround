@@ -421,6 +421,15 @@
       editSubmitBtn.classList.toggle('pointer-events-none', !canManageEdit);
       editSubmitBtn.classList.toggle('opacity-50', !canManageEdit);
     }
+
+    syncGuestWarningBanner();
+  }
+
+  function syncGuestWarningBanner() {
+    var guestBanner = document.getElementById('guest-warning-banner');
+    if (guestBanner) {
+      guestBanner.classList.toggle('hidden', isAuthenticated());
+    }
   }
 
   function showApp() {
@@ -443,6 +452,7 @@
       if (hu) { hu.classList.add('hidden'); hu.classList.remove('flex'); }
       if (hLogin) hLogin.classList.remove('hidden');
     }
+    syncGuestWarningBanner();
     if (window.lucide) lucide.createIcons();
     updateStepUI();
     if (typeof renderRecords === 'function' && Array.isArray(recordsData) && recordsData.length > 0) {
@@ -5996,6 +6006,7 @@ export const __legacyGlobals = {
   getGuestSessionAccessKey: typeof getGuestSessionAccessKey === 'function' ? getGuestSessionAccessKey : undefined,
   isGuestSessionOwnedRecord: typeof isGuestSessionOwnedRecord === 'function' ? isGuestSessionOwnedRecord : undefined,
   syncGuestActionControls: typeof syncGuestActionControls === 'function' ? syncGuestActionControls : undefined,
+  syncGuestWarningBanner: typeof syncGuestWarningBanner === 'function' ? syncGuestWarningBanner : undefined,
   showApp: typeof showApp === 'function' ? showApp : undefined,
   showLogin: typeof showLogin === 'function' ? showLogin : undefined,
   resetAppToGuestState: typeof resetAppToGuestState === 'function' ? resetAppToGuestState : undefined,
