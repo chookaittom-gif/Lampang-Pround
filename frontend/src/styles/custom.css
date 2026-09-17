@@ -148,6 +148,44 @@
       color: #ffffff;
     }
 
+    /* Step labels (audit: numbers alone give no context) */
+    .step-indicator {
+      position: relative;
+      overflow: visible;
+    }
+
+    .step-indicator::after {
+      content: attr(data-label);
+      position: absolute;
+      top: calc(100% + 6px);
+      left: 50%;
+      transform: translateX(-50%);
+      white-space: nowrap;
+      font-size: 0.7rem;
+      line-height: 1;
+      font-weight: 600;
+      color: #64748b;
+    }
+
+    .step-indicator.active::after {
+      color: #1d4ed8;
+    }
+
+    /* Touch target floor (DESIGN: touch target ≥44px) */
+    button {
+      min-height: 44px;
+    }
+
+    button.p-2,
+    button.p-2\.5 {
+      min-width: 44px;
+    }
+
+    /* Overlay clear button inside the small catalog search input */
+    #pc-search-clear {
+      min-height: 0;
+    }
+
     /* Image Upload Area */
     .image-upload-wrapper {
       position: relative;

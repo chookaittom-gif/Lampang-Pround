@@ -22,7 +22,7 @@
   <!-- Login Overlay -->
   <div id="login-overlay" class="fixed inset-0 z-[999] bg-gradient-to-br from-blue-600/90 via-sky-500/90 to-blue-400/90 flex items-center justify-center p-4 backdrop-blur-sm hidden transition-opacity duration-300">
     <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-8 relative">
-      <button type="button" onclick="hideLogin()" class="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-full transition-colors"><i data-lucide="x" class="w-5 h-5"></i></button>
+      <button type="button" onclick="hideLogin()" aria-label="ปิด" class="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-full transition-colors"><i data-lucide="x" class="w-5 h-5"></i></button>
       <div class="flex flex-col items-center mb-6">
         <div class="w-16 h-16 bg-gradient-to-br from-blue-500 to-sky-400 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-200 mb-4">
           <i data-lucide="clipboard-list" class="w-8 h-8 text-white"></i>
@@ -34,7 +34,7 @@
         <i data-lucide="alert-circle" class="w-4 h-4 shrink-0"></i>
         <span id="login-error-text"></span>
       </div>
-      <div class="space-y-4">
+      <form class="space-y-4" onsubmit="event.preventDefault();doLogin();">
         <div>
           <label class="block text-sm font-medium text-slate-700 mb-1.5">ชื่อผู้ใช้</label>
           <input id="login-username" type="text" autocomplete="username" class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-400 text-slate-800 transition-all" placeholder="กรอกชื่อผู้ใช้">
@@ -59,14 +59,14 @@
             <svg id="login-spinner" class="hidden animate-spin w-5 h-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 22 6.477 22 12h-4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
           </button>
         </div>
-      </div>
+      </form>
     </div>
   </div>
 
   <!-- Register Overlay -->
   <div id="register-overlay" class="fixed inset-0 z-[1000] bg-slate-900/40 flex items-center justify-center p-4 backdrop-blur-sm hidden transition-opacity duration-300">
     <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-8 relative max-h-[90vh] overflow-y-auto">
-      <button type="button" onclick="hideRegister()" class="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-full transition-colors"><i data-lucide="x" class="w-5 h-5"></i></button>
+      <button type="button" onclick="hideRegister()" aria-label="ปิด" class="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-full transition-colors"><i data-lucide="x" class="w-5 h-5"></i></button>
       <div class="flex flex-col items-center mb-6 mt-2">
         <div class="w-16 h-16 bg-gradient-to-br from-indigo-500 to-blue-400 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-200 mb-4">
           <i data-lucide="user-plus" class="w-8 h-8 text-white"></i>
@@ -78,7 +78,7 @@
         <i data-lucide="alert-circle" class="w-4 h-4 shrink-0"></i>
         <span id="register-error-text"></span>
       </div>
-      <div class="space-y-4">
+      <form class="space-y-4" onsubmit="event.preventDefault();doRegister();">
         <div>
           <label class="block text-sm font-medium text-slate-700 mb-1.5">ชื่อ-นามสกุล <span class="text-red-500">*</span></label>
           <input id="register-name" type="text" autocomplete="name" class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-400 text-slate-800 transition-all" placeholder="ชื่อ-นามสกุล">
@@ -103,8 +103,8 @@
           <i data-lucide="check-circle" class="w-5 h-5" id="register-btn-icon"></i>
           <span id="register-btn-text">ยืนยันการสมัคร</span>
           <svg id="register-spinner" class="hidden animate-spin w-5 h-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 22 6.477 22 12h-4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-        </button>
-      </div>
+          </button>
+      </form>
     </div>
   </div>
 
@@ -119,7 +119,7 @@
             <p class="text-xs text-white/80">เพิ่มสินค้าให้รายการที่กำลังแก้ไข</p>
           </div>
         </div>
-        <button type="button" onclick="closeEditProductModal()" class="p-2 rounded-xl bg-white/20 hover:bg-white/30 transition-colors"><i data-lucide="x" class="w-5 h-5"></i></button>
+        <button type="button" onclick="closeEditProductModal()" aria-label="ปิด" class="p-2 rounded-xl bg-white/20 hover:bg-white/30 transition-colors"><i data-lucide="x" class="w-5 h-5"></i></button>
       </div>
 
       <div class="p-5 md:p-6 space-y-4">
@@ -157,7 +157,7 @@
             <div id="edit-product-image-preview-wrap" class="hidden mb-2">
               <div class="relative inline-block">
                 <img id="edit-product-image-preview" src="" alt="preview" class="product-image-preview">
-                <button type="button" onclick="clearEditProductImagePreview()" class="absolute top-1 right-1 w-7 h-7 rounded-full bg-slate-800/70 text-white flex items-center justify-center hover:bg-slate-800 transition-colors" style="min-height:28px"><i data-lucide="x" class="w-3.5 h-3.5"></i></button>
+                <button type="button" onclick="clearEditProductImagePreview()" aria-label="ลบรูปนี้" class="absolute top-1 right-1 w-11 h-11 rounded-full bg-slate-800/70 text-white flex items-center justify-center hover:bg-slate-800 transition-colors"><i data-lucide="x" class="w-3.5 h-3.5"></i></button>
               </div>
             </div>
             <div id="edit-product-image-dropzone" class="rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-center cursor-pointer hover:border-blue-300 hover:bg-blue-50/40 transition-colors" onclick="document.getElementById('edit-product-image-input').click()">
@@ -240,7 +240,7 @@
     <section id="section-form" class="fade-in">
       
       <!-- Progress Bar -->
-      <div class="mb-8 px-2 max-w-2xl mx-auto">
+      <div class="mb-12 px-2 max-w-2xl mx-auto">
         <div class="flex items-center justify-between relative">
           <!-- Track -->
           <div class="absolute left-0 top-1/2 transform -translate-y-1/2 w-full h-1 bg-slate-200 z-0 rounded-full"></div>
@@ -248,10 +248,10 @@
           <div id="progress-bar" class="absolute left-0 top-1/2 transform -translate-y-1/2 h-1 bg-blue-500 z-0 transition-all duration-300 rounded-full" style="width: 0%;"></div>
           
           <!-- Steps -->
-          <div class="step-indicator active" data-step="1">1</div>
-          <div class="step-indicator" data-step="2">2</div>
-          <div class="step-indicator" data-step="3">3</div>
-          <div class="step-indicator" data-step="4">4</div>
+          <div class="step-indicator active" data-step="1" data-label="ข้อมูลร้าน" aria-label="ขั้นตอนที่ 1: ข้อมูลร้าน">1</div>
+          <div class="step-indicator" data-step="2" data-label="สินค้า" aria-label="ขั้นตอนที่ 2: ธุรกิจและสินค้า">2</div>
+          <div class="step-indicator" data-step="3" data-label="สถานะ" aria-label="ขั้นตอนที่ 3: สถานะและการประเมิน">3</div>
+          <div class="step-indicator" data-step="4" data-label="รูปภาพ" aria-label="ขั้นตอนที่ 4: รูปภาพ">4</div>
         </div>
       </div>
 
@@ -265,6 +265,9 @@
               <i data-lucide="building" class="w-5 h-5"></i>
               ข้อมูลทั่วไปผู้ประกอบการ
             </h2>
+            <div class="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              ระบบจะให้แก้ไขได้เฉพาะอุปกรณ์นี้ หากต้องการแก้ไขภายหลัง แนะนำให้เข้าสู่ระบบ
+            </div>
             
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div class="form-group md:col-span-2">
@@ -310,8 +313,8 @@
                 <label>ลิงก์แผนที่ Google Maps / พิกัด GPS</label>
                 <div class="flex gap-2">
                   <div class="relative flex-1">
-                    <input type="text" id="map_url_input" name="map_url" class="form-input pr-9" placeholder="วางลิงก์ Google Maps เช่น https://maps.google.com/?q=18.2882,99.4921 หรือพิมพ์พิกัด" oninput="handleMapUrlInput(this.value, false)">
-                    <button type="button" onclick="clearMapUrlInput(false)" id="btn-clear-map-url" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 hidden p-1" title="ล้างค่า">
+                    <input type="text" id="map_url_input" name="map_url" class="form-input pr-14" placeholder="วางลิงก์ Google Maps เช่น https://maps.google.com/?q=18.2882,99.4921 หรือพิมพ์พิกัด" oninput="handleMapUrlInput(this.value, false)">
+                    <button type="button" onclick="clearMapUrlInput(false)" id="btn-clear-map-url" aria-label="ล้างค่า" class="absolute right-2 top-1/2 -translate-y-1/2 w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-600 hidden" title="ล้างค่า">
                       <i data-lucide="x" class="w-4 h-4"></i>
                     </button>
                   </div>
@@ -429,7 +432,7 @@
                       <i data-lucide="package-plus" class="w-4 h-4 text-blue-500"></i>
                       รายการสินค้า
                     </h3>
-                    <p class="text-xs text-slate-500 mt-1">เพิ่มสินค้าได้ทีละรายการผ่าน Modal แล้วบันทึกลงชีต Products แบบ One-to-Many</p>
+                    <p class="text-xs text-slate-500 mt-1">เพิ่มสินค้าได้ทีละรายการ ระบบจะบันทึกแยกเป็นรายการสินค้าให้อัตโนมัติ</p>
                   </div>
                   <button type="button" onclick="openProductModal()" class="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-emerald-500 text-white font-semibold shadow-sm shadow-blue-200 hover:shadow-md hover:shadow-blue-300 transition-all duration-200">
                     <i data-lucide="plus-circle" class="w-4 h-4"></i>
@@ -556,9 +559,6 @@
               <i data-lucide="image" class="w-5 h-5"></i>
               รูปภาพและหมายเหตุ
             </h2>
-            <div class="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-              ระบบจะให้แก้ไขได้เฉพาะอุปกรณ์นี้ หากต้องการแก้ไขภายหลัง แนะนำให้เข้าสู่ระบบ
-            </div>
             
             <div class="space-y-6">
               <!-- Image Uploaders -->
@@ -659,7 +659,7 @@
             <div class="relative sm:col-span-4">
               <i data-lucide="search" class="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"></i>
               <input id="list-search-input" type="search" class="form-input pl-11 pr-12 text-sm" placeholder="ค้นหาชื่อร้าน, เจ้าของ, หรือเบอร์โทร" oninput="handleSearchInput(event)">
-              <button id="list-search-clear" type="button" onclick="clearSearchInput()" class="hidden absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors items-center justify-center">
+              <button id="list-search-clear" type="button" onclick="clearSearchInput()" aria-label="ล้างคำค้นหา" class="hidden absolute right-2 top-1/2 -translate-y-1/2 w-11 h-11 rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors items-center justify-center">
                 <i data-lucide="x" class="w-4 h-4"></i>
               </button>
             </div>
@@ -866,7 +866,7 @@
             </div>
           </div>
 
-          <button type="button" onclick="closeDetailModal()" class="shrink-0 p-2.5 rounded-2xl text-white transition-colors backdrop-blur-sm mt-0.5" style="background-color: rgba(255,255,255,0.15);">
+          <button type="button" onclick="closeDetailModal()" aria-label="ปิด" class="shrink-0 p-2.5 rounded-2xl text-white transition-colors backdrop-blur-sm mt-0.5" style="background-color: rgba(255,255,255,0.15);">
             <i data-lucide="x" class="w-5 h-5"></i>
           </button>
         </div>
@@ -896,7 +896,7 @@
             <h3 id="pc-shop-name" class="text-base md:text-lg font-bold leading-tight line-clamp-1"></h3>
             <p id="pc-total-count" class="text-xs mt-0.5" style="color:rgba(255,255,255,0.8)"></p>
           </div>
-          <button type="button" onclick="closeProductCatalogModal()" class="shrink-0 p-2.5 rounded-2xl text-white transition-colors mt-0.5" style="background:rgba(255,255,255,0.15)">
+          <button type="button" onclick="closeProductCatalogModal()" aria-label="ปิด" class="shrink-0 p-2.5 rounded-2xl text-white transition-colors mt-0.5" style="background:rgba(255,255,255,0.15)">
             <i data-lucide="x" class="w-5 h-5"></i>
           </button>
         </div>
@@ -909,7 +909,7 @@
           <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"></i>
           <input id="pc-search-input" type="search" placeholder="ค้นหาชื่อสินค้า หรือรายละเอียด..." oninput="handleCatalogSearch(this.value)"
             class="w-full pl-9 pr-10 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300 focus:border-emerald-400 transition-all">
-          <button type="button" onclick="handleCatalogSearch('');document.getElementById('pc-search-input').value=''" class="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-lg bg-slate-200 text-slate-500 hover:bg-slate-300 transition-colors items-center justify-center hidden" id="pc-search-clear">
+          <button type="button" onclick="handleCatalogSearch('');document.getElementById('pc-search-input').value=''" aria-label="ล้างคำค้นหา" class="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-lg bg-slate-200 text-slate-500 hover:bg-slate-300 transition-colors items-center justify-center hidden" id="pc-search-clear">
             <i data-lucide="x" class="w-3.5 h-3.5"></i>
           </button>
         </div>
@@ -961,7 +961,7 @@
               <span id="pd-price" class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-bold" style="background:rgba(16,185,129,0.85);color:#fff;backdrop-filter:blur(4px)"></span>
             </div>
           </div>
-          <button type="button" onclick="closeProductDetailModal()" class="shrink-0 p-2.5 rounded-2xl text-white transition-colors mt-0.5" style="background:rgba(255,255,255,0.15)">
+          <button type="button" onclick="closeProductDetailModal()" aria-label="ปิด" class="shrink-0 p-2.5 rounded-2xl text-white transition-colors mt-0.5" style="background:rgba(255,255,255,0.15)">
             <i data-lucide="x" class="w-5 h-5"></i>
           </button>
         </div>
@@ -974,7 +974,7 @@
 
   <!-- Image Lightbox Modal -->
   <div id="modal-lightbox" onclick="closeLightbox()" class="fixed inset-0 z-[60] flex items-center justify-center opacity-0 pointer-events-none transition-opacity duration-300" style="background: rgba(0,0,0,0.92); backdrop-filter: blur(4px);">
-    <button type="button" onclick="event.stopPropagation(); prevLightbox()" class="absolute left-3 md:left-6 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full flex items-center justify-center text-white" style="background: rgba(255,255,255,0.15); backdrop-filter: blur(8px);">
+    <button type="button" onclick="event.stopPropagation(); prevLightbox()" aria-label="รูปก่อนหน้า" class="absolute left-3 md:left-6 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full flex items-center justify-center text-white" style="background: rgba(255,255,255,0.15); backdrop-filter: blur(8px);">
       <i data-lucide="chevron-left" class="w-6 h-6"></i>
     </button>
     <div class="relative flex items-center justify-center p-4 w-full max-w-6xl" onclick="event.stopPropagation()">
@@ -982,10 +982,10 @@
       <div id="lightbox-label" class="absolute top-3 left-3 px-3 py-1.5 rounded-full text-white text-xs font-bold" style="background: rgba(0,0,0,0.55); backdrop-filter: blur(6px);"></div>
       <div id="lightbox-counter" class="absolute top-3 right-3 px-3 py-1.5 rounded-full text-white text-xs font-bold" style="background: rgba(0,0,0,0.55); backdrop-filter: blur(6px);"></div>
     </div>
-    <button type="button" onclick="event.stopPropagation(); nextLightbox()" class="absolute right-3 md:right-6 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full flex items-center justify-center text-white" style="background: rgba(255,255,255,0.15); backdrop-filter: blur(8px);">
+    <button type="button" onclick="event.stopPropagation(); nextLightbox()" aria-label="รูปถัดไป" class="absolute right-3 md:right-6 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full flex items-center justify-center text-white" style="background: rgba(255,255,255,0.15); backdrop-filter: blur(8px);">
       <i data-lucide="chevron-right" class="w-6 h-6"></i>
     </button>
-    <button onclick="closeLightbox()" class="absolute top-4 right-4 w-10 h-10 rounded-full flex items-center justify-center text-white" style="background: rgba(255,255,255,0.15); backdrop-filter: blur(8px);">
+    <button onclick="closeLightbox()" aria-label="ปิด" class="absolute top-4 right-4 w-11 h-11 rounded-full flex items-center justify-center text-white" style="background: rgba(255,255,255,0.15); backdrop-filter: blur(8px);">
       <i data-lucide="x" class="w-5 h-5"></i>
     </button>
     <p class="absolute bottom-5 left-0 right-0 text-center text-white/60 text-xs pointer-events-none">แตะพื้นที่ว่างเพื่อปิด หรือใช้ปุ่มซ้ายขวาเพื่อเลื่อนรูป</p>
@@ -1002,7 +1002,7 @@
             <p id="edit-modal-id" class="text-xs text-white/80"></p>
           </div>
         </div>
-        <button onclick="closeEditModal()" class="p-2 rounded-xl bg-white/20 hover:bg-white/30 transition-colors"><i data-lucide="x" class="w-5 h-5"></i></button>
+        <button onclick="closeEditModal()" aria-label="ปิด" class="p-2 rounded-xl bg-white/20 hover:bg-white/30 transition-colors"><i data-lucide="x" class="w-5 h-5"></i></button>
       </div>
       <div id="edit-modal-scroll" class="p-5 md:p-6 space-y-4 flex-1 overflow-y-auto overscroll-contain">
         <form id="editForm" onsubmit="event.preventDefault();">
@@ -1089,7 +1089,7 @@
                       <i data-lucide="package-plus" class="w-4 h-4 text-blue-500"></i>
                       รายการสินค้า
                     </h5>
-                    <p class="text-xs text-slate-500 mt-1">แก้ไขสินค้าได้ทีละรายการ แล้วบันทึกกลับชีต Products แบบ One-to-Many</p>
+                    <p class="text-xs text-slate-500 mt-1">แก้ไขสินค้าได้ทีละรายการ ระบบจะบันทึกกลับเป็นรายการสินค้าให้อัตโนมัติ</p>
                   </div>
                   <button type="button" onclick="openEditProductModal()" class="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-emerald-500 text-white font-semibold shadow-sm shadow-blue-200 hover:shadow-md hover:shadow-blue-300 transition-all duration-200">
                     <i data-lucide="plus-circle" class="w-4 h-4"></i>
@@ -1144,7 +1144,7 @@
                   <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <div>
                       <p class="text-sm font-semibold text-slate-700">เพิ่มรูปใหม่</p>
-                      <p class="text-xs text-slate-500">เลือกไฟล์จากหมวดที่ต้องการด้านบน ระบบจะจัดเข้า role ให้ถูกต้อง</p>
+                      <p class="text-xs text-slate-500">เลือกไฟล์จากหมวดที่ต้องการด้านบน ระบบจะจัดเก็บเข้าหมวดให้ถูกต้อง</p>
                     </div>
                     <button type="button" id="edit-gallery-clear-all" onclick="clearEditGalleryQueue()" class="hidden text-rose-500 font-medium">ล้างรายการรูป</button>
                   </div>
@@ -1192,7 +1192,7 @@
             <p class="text-xs text-white/80">กรอกข้อมูลสินค้า 1 รายการต่อ 1 ครั้ง</p>
           </div>
         </div>
-        <button type="button" onclick="closeProductModal()" class="p-2 rounded-xl bg-white/20 hover:bg-white/30 transition-colors"><i data-lucide="x" class="w-5 h-5"></i></button>
+        <button type="button" onclick="closeProductModal()" aria-label="ปิด" class="p-2 rounded-xl bg-white/20 hover:bg-white/30 transition-colors"><i data-lucide="x" class="w-5 h-5"></i></button>
       </div>
 
       <div class="p-5 md:p-6 space-y-4">

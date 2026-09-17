@@ -205,10 +205,34 @@
     restoreFormDraft();
     renderProductList();
     initAuth();
+    syncModalA11yState();
     if (!getDeepLinkParam_()) {
       loadRecords();
     }
   });
+
+  // ========== MODAL A11Y SYNC ==========
+  // โมดัลที่ปิดด้วย opacity/pointer-events ยังค้างใน accessibility tree —
+  // ซิงก์ aria-hidden + inert ตามสถานะเปิด/ปิดของทุกโมดัลอัตโนมัติ
+  var _a11yModalIds = ['login-overlay', 'register-overlay', 'modal-edit-product', 'modal-product', 'modal-detail', 'modal-product-catalog', 'modal-product-detail', 'modal-lightbox', 'modal-edit', 'modal-success', 'modal-delete'];
+  function syncModalA11yState() {
+    _a11yModalIds.forEach(function(id) {
+      var m = document.getElementById(id);
+      if (!m) return;
+      var closed = m.classList.contains('hidden') || m.classList.contains('opacity-0') || m.classList.contains('pointer-events-none');
+      if (closed) {
+        m.setAttribute('aria-hidden', 'true');
+        m.setAttribute('inert', '');
+      } else {
+        m.removeAttribute('aria-hidden');
+        m.removeAttribute('inert');
+      }
+    });
+  }
+  try {
+    var _modalA11yObserver = new MutationObserver(function() { syncModalA11yState(); });
+    _modalA11yObserver.observe(document.documentElement, { attributes: true, subtree: true, attributeFilter: ['class'] });
+  } catch (e) { }
 
   // ========== AUTH ==========
   function clearAuthStorage() {
@@ -3396,7 +3420,7 @@
       let dateStr = item.CreatedAt || '';
       
       html += `
-        <div class="record-card pl-5 group" onclick="openDetailModal(${index})">
+        <div class="record-card pl-5 group" onclick="openDetailModal(${index})" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openDetailModal(${index})}">
           <div class="flex justify-between items-start mb-2">
             <div class="min-w-0 flex-1 mr-2">
               <span class="inline-flex items-center gap-1 px-2.5 py-1 bg-gradient-to-r from-blue-500 to-sky-400 text-white text-xs font-bold rounded-lg mb-2 shadow-sm shadow-blue-200">
@@ -4861,7 +4885,7 @@
         plugins: { legend: { display: false } },
         scales: {
           y: { beginAtZero: true, ticks: { font: { family: 'Prompt', size: 11 }, stepSize: 1, precision: 0 }, grid: { color: '#f1f5f9' } },
-          x: { ticks: { font: { family: 'Prompt', size: 10 }, maxRotation: 45 }, grid: { display: false } }
+          x: { ticks: { font: { family: 'Prompt', size: 11 }, maxRotation: 30, autoSkipPadding: 12 }, grid: { display: false } }
         }
       }
     });
@@ -5881,6 +5905,7 @@ export const __legacyGlobals = {
   lpClientCacheWriteDetail: typeof lpClientCacheWriteDetail === 'function' ? lpClientCacheWriteDetail : undefined,
   lpClientCacheClearDetail: typeof lpClientCacheClearDetail === 'function' ? lpClientCacheClearDetail : undefined,
   lpClientCacheClearAllDetails: typeof lpClientCacheClearAllDetails === 'function' ? lpClientCacheClearAllDetails : undefined,
+  syncModalA11yState: typeof syncModalA11yState === 'function' ? syncModalA11yState : undefined,
   clearAuthStorage: typeof clearAuthStorage === 'function' ? clearAuthStorage : undefined,
   scheduleAutoLogoutTimer: typeof scheduleAutoLogoutTimer === 'function' ? scheduleAutoLogoutTimer : undefined,
   triggerSessionExpiryLogout: typeof triggerSessionExpiryLogout === 'function' ? triggerSessionExpiryLogout : undefined,
