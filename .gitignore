@@ -33,3 +33,9 @@ Code/.kiro/
 Code/.windsurf/
 Code/.scratch/
 Code/.ignore
+
+# local-only: ไม่ใช่ไฟล์เว็บ (logs, ภาพ verify, โน้ตส่วนตัว)
+.grok/
+.playwright-cli/
+/verification_dashboard.png
+/*Lampangpround/
