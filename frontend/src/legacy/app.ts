@@ -4801,7 +4801,7 @@
       } else if (raw === 'Medium SME' || raw === 'M' || raw.toLowerCase() === 'medium') {
         counts['Medium SME'] = (counts['Medium SME'] || 0) + 1;
       } else {
-        counts['อื่น'] = (counts['อื่น'] || 0) + 1;
+        counts['อื่นๆ'] = (counts['อื่นๆ'] || 0) + 1;
       }
     });
     return counts;
@@ -4878,9 +4878,36 @@
     });
   }
 
-  function formatChartAxisLabel(label) {
+  function formatChartAxisLabel(label, isMobile) {
     if (!label) return '';
     var str = String(label).trim();
+    if (isMobile) {
+      if (str === 'ของใช้ ของตกแต่ง และของที่ระลึก' || str === 'ของใช้/ของตกแต่ง/ของที่ระลึก') {
+        return 'ของใช้/ของที่ระลึก';
+      }
+      if (str === 'ผ้าและเครื่องแต่งกาย') {
+        return 'ผ้า/เครื่องแต่งกาย';
+      }
+      if (str === 'สมุนไพรที่ไม่ใช่อาหาร') {
+        return 'สมุนไพรไม่ใช่อาหาร';
+      }
+      if (str === 'ตัวแทนจำหน่าย') {
+        return 'ตัวแทนจำหน่าย';
+      }
+      if (str === 'Shopee/Lazada') {
+        return 'Shopee/Lazada';
+      }
+      if (str === 'กำลังพัฒนา Growth') {
+        return 'กำลังพัฒนา';
+      }
+      if (str === 'เริ่มต้น Startup') {
+        return 'เริ่มต้น';
+      }
+      if (str === 'มั่นคง Stable') {
+        return 'มั่นคง';
+      }
+      return str;
+    }
     if (str === 'ของใช้ ของตกแต่ง และของที่ระลึก' || str === 'ของใช้/ของตกแต่ง/ของที่ระลึก') {
       return ['ของใช้ ของตกแต่ง', 'และของที่ระลึก'];
     }
@@ -4921,8 +4948,11 @@
   function createBarChart(canvasId, dataObj) {
     var ctx = document.getElementById(canvasId);
     if (!ctx) return null;
+    var isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
     var rawLabels = Object.keys(dataObj);
-    var formattedLabels = rawLabels.map(formatChartAxisLabel);
+    var formattedLabels = rawLabels.map(function(lbl) {
+      return formatChartAxisLabel(lbl, isMobile);
+    });
     var values = rawLabels.map(function(k) { return dataObj[k]; });
     return new Chart(ctx, {
       type: 'bar',
@@ -4933,14 +4963,14 @@
           backgroundColor: DASH_COLORS.slice(0, rawLabels.length),
           borderRadius: 6,
           borderSkipped: false,
-          maxBarThickness: 48
+          maxBarThickness: isMobile ? 32 : 48
         }]
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
         layout: {
-          padding: { bottom: 6 }
+          padding: { bottom: isMobile ? 12 : 6, top: 4 }
         },
         plugins: {
           legend: { display: false },
@@ -4962,15 +4992,15 @@
         scales: {
           y: {
             beginAtZero: true,
-            ticks: { font: { family: 'Prompt', size: 11 }, stepSize: 1, precision: 0 },
+            ticks: { font: { family: 'Prompt', size: isMobile ? 10 : 11 }, stepSize: 1, precision: 0 },
             grid: { color: '#f1f5f9' }
           },
           x: {
             ticks: {
-              font: { family: 'Prompt', size: 10 },
+              font: { family: 'Prompt', size: isMobile ? 9.5 : 10 },
               autoSkip: false,
-              maxRotation: 0,
-              minRotation: 0,
+              maxRotation: isMobile ? 45 : 0,
+              minRotation: isMobile ? (rawLabels.length > 3 ? 35 : 0) : 0,
               padding: 4
             },
             grid: { display: false }
